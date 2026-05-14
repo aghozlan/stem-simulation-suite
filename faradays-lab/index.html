@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ahmad Ghozlan, M.S.">
+    <title>Electromagnetic Induction Lab</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-color: #2c3e50;
+            --accent: #3498db;
+            --copper: #b87333;
+            --magnet-n: #e74c3c;
+            --magnet-s: #34495e;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        header {
+            width: 100%;
+            background-color: var(--panel-bg);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            text-align: center;
+            box-sizing: border-box;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--text-color);
+        }
+        p.subtitle {
+            margin: 5px 0 0 0;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        #lab-container {
+            position: relative;
+            margin-top: 2rem;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #e1e8ed;
+        }
+        canvas {
+            display: block;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e1e8ed;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 600;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Electromagnetic Induction Lab</h1>
+        <p class="subtitle">Drag the magnet through the coil to observe Faraday's Law & Lenz's Law</p>
+    </header>
+
+    <div id="lab-container">
+        <canvas id="simCanvas" width="800" height="400"></canvas>
+        <div class="controls">
+            <button id="flipBtn">Flip Magnet (N/S)</button>
+            <button id="resetBtn">Reset Position</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Physics & State Variables
+        let isDragging = false;
+        let lastX = 0;
+        let lastTime = 0;
+        let velocity = 0;
+        let emf = 0;
+        let smoothedEmf = 0; // For realistic galvanometer needle movement
+        let isNorthRight = true;
+
+        const coil = {
+            x: 400,
+            y: 250,
+            radius: 60,
+            width: 120,
+            turns: 5
+        };
+
+        const magnet = {
+            x: 150,
+            y: 250,
+            width: 160,
+            height: 40,
+            isHovered: false
+        };
+
+        // Event Listeners for Interaction
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (mouseX > magnet.x - magnet.width/2 && mouseX < magnet.x + magnet.width/2 &&
+                mouseY > magnet.y - magnet.height/2 && mouseY < magnet.y + magnet.height/2) {
+                isDragging = true;
+                lastX = mouseX;
+                lastTime = performance.now();
+                magnet.x = mouseX;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Hover state for cursor
+            if (mouseX > magnet.x - magnet.width/2 && mouseX < magnet.x + magnet.width/2 &&
+                mouseY > magnet.y - magnet.height/2 && mouseY < magnet.y + magnet.height/2) {
+                magnet.isHovered = true;
+            } else {
+                magnet.isHovered = false;
+            }
+
+            if (isDragging) {
+                const currentTime = performance.now();
+                const dt = Math.max(1, currentTime - lastTime);
+                
+                magnet.x = Math.max(magnet.width/2, Math.min(canvas.width - magnet.width/2, mouseX));
+                
+                // Calculate velocity (pixels per ms)
+                velocity = (magnet.x - lastX) / dt;
+                
+                lastX = magnet.x;
+                lastTime = currentTime;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            velocity = 0; // Stop induced EMF when drag stops
+        });
+
+        // Controls
+        document.getElementById('flipBtn').addEventListener('click', () => {
+            isNorthRight = !isNorthRight;
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            magnet.x = 150;
+            velocity = 0;
+            emf = 0;
+            smoothedEmf = 0;
+        });
+
+        // Physics Calculation: EMF = -d(Phi)/dt
+        function updatePhysics() {
+            if (!isDragging) {
+                velocity *= 0.9; // Friction decay for velocity
+                if (Math.abs(velocity) < 0.01) velocity = 0;
+            }
+
+            // Distance from magnet center to coil center
+            const dx = magnet.x - coil.x;
+            
+            // Model d(Phi)/dx as a derivative of a Gaussian curve
+            const k = 0.0001; 
+            const dPhi_dx = -2 * k * dx * Math.exp(-k * dx * dx);
+            
+            // EMF = - N * (dPhi/dx) * (dx/dt)
+            // We scale it for visual effect on the galvanometer
+            const rawEmf = -coil.turns * dPhi_dx * velocity * 15000;
+            
+            // Flip direction based on poles
+            emf = isNorthRight ? rawEmf : -rawEmf;
+
+            // Smooth the needle movement
+            smoothedEmf += (emf - smoothedEmf) * 0.15;
+            
+            // Cap the needle
+            if (smoothedEmf > 1) smoothedEmf = 1;
+            if (smoothedEmf < -1) smoothedEmf = -1;
+        }
+
+        // Rendering Functions
+        function drawGalvanometer() {
+            ctx.save();
+            ctx.translate(400, 80);
+
+            // Casing
+            ctx.beginPath();
+            ctx.arc(0, 0, 60, Math.PI, 0);
+            ctx.lineTo(60, 20);
+            ctx.lineTo(-60, 20);
+            ctx.closePath();
+            ctx.fillStyle = '#ecf0f1';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.stroke();
+
+            // Screen
+            ctx.beginPath();
+            ctx.arc(0, 0, 50, Math.PI, 0);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.stroke();
+
+            // Ticks
+            ctx.fillStyle = '#2c3e50';
+            ctx.textAlign = 'center';
+            ctx.font = '12px Arial';
+            ctx.fillText("0", 0, -35);
+            ctx.fillText("-", -35, -20);
+            ctx.fillText("+", 35, -20);
+
+            // Needle
+            ctx.rotate(smoothedEmf * (Math.PI / 3)); // Max 60 degrees deflection
+            ctx.beginPath();
+            ctx.moveTo(0, 5);
+            ctx.lineTo(-2, 0);
+            ctx.lineTo(0, -45);
+            ctx.lineTo(2, 0);
+            ctx.closePath();
+            ctx.fillStyle = '#c0392b';
+            ctx.fill();
+
+            // Center Pin
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawCoil() {
+            ctx.save();
+            ctx.lineWidth = 6;
+            ctx.lineJoin = 'round';
+
+            // Draw back half of the loops
+            ctx.strokeStyle = '#a0522d'; // Darker copper for depth
+            for (let i = 0; i < coil.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / (coil.turns - 1));
+                ctx.beginPath();
+                ctx.ellipse(loopX, coil.y, 15, coil.radius, Math.PI/2, Math.PI, Math.PI*2);
+                ctx.stroke();
+            }
+
+            // Draw magnet (if it is behind the front loops)
+            drawMagnet();
+
+            // Draw front half of the loops
+            ctx.strokeStyle = '#cd7f32'; // Bright copper
+            for (let i = 0; i < coil.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / (coil.turns - 1));
+                ctx.beginPath();
+                ctx.ellipse(loopX, coil.y, 15, coil.radius, Math.PI/2, 0, Math.PI);
+                ctx.stroke();
+            }
+
+            // Connecting wires to Galvanometer
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.beginPath();
+            ctx.moveTo(coil.x - coil.width/2, coil.y + coil.radius);
+            ctx.lineTo(340, coil.y + coil.radius + 20);
+            ctx.lineTo(340, 100);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(coil.x + coil.width/2, coil.y + coil.radius);
+            ctx.lineTo(460, coil.y + coil.radius + 20);
+            ctx.lineTo(460, 100);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawMagnet() {
+            ctx.save();
+            ctx.translate(magnet.x, magnet.y);
+            
+            // Drop shadow for 3D effect
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+
+            // Left Pole
+            ctx.fillStyle = isNorthRight ? 'var(--magnet-s)' : 'var(--magnet-n)';
+            ctx.fillRect(-magnet.width/2, -magnet.height/2, magnet.width/2, magnet.height);
+            
+            // Right Pole
+            ctx.fillStyle = isNorthRight ? 'var(--magnet-n)' : 'var(--magnet-s)';
+            ctx.fillRect(0, -magnet.height/2, magnet.width/2, magnet.height);
+
+            // Labels
+            ctx.shadowColor = 'transparent';
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(isNorthRight ? "S" : "N", -magnet.width/4, 0);
+            ctx.fillText(isNorthRight ? "N" : "S", magnet.width/4, 0);
+
+            ctx.restore();
+        }
+
+        function drawElectrons() {
+            // Visual indicator of current moving in the wires
+            if (Math.abs(smoothedEmf) < 0.05) return;
+
+            const time = performance.now() / 1000;
+            const speed = smoothedEmf * 5; 
+            const offset = (time * speed * 20) % 20;
+
+            ctx.fillStyle = '#f1c40f'; // Electron color
+            
+            // Simulate electrons on the left wire
+            for(let i=0; i<5; i++) {
+                let y = 100 + ((i * 20 + offset + 100) % 100);
+                ctx.beginPath();
+                ctx.arc(340, y, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // Main Game Loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            updatePhysics();
+            
+            // The drawing order is crucial for the depth illusion
+            drawGalvanometer();
+            drawCoil(); 
+            drawElectrons();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start loop
+        animate();
+    </script>
+</body>
+</html>
