@@ -4,364 +4,585 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="author" content="Ahmad Ghozlan, M.S.">
-    <title>Electromagnetic Induction Lab</title>
+    <title>Advanced Electromagnetic Induction Lab</title>
     <style>
         :root {
-            --bg-color: #f4f7f6;
+            --bg-color: #f0f4f8;
             --panel-bg: #ffffff;
-            --text-color: #2c3e50;
-            --accent: #3498db;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --accent: #3182ce;
+            --accent-hover: #2b6cb0;
+            --border: #e2e8f0;
+            --graph-flux: #38b2ac; /* Teal */
+            --graph-emf: #e53e3e;  /* Red */
         }
+
         body {
             margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: var(--text-main);
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
+
         header {
             width: 100%;
-            background-color: var(--panel-bg);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: var(--panel-bg);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             text-align: center;
-            box-sizing: border-box;
+            border-bottom: 1px solid var(--border);
         }
-        h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            color: var(--text-color);
+
+        h1 { margin: 0; font-size: 2rem; color: #1a202c; }
+        p.subtitle { margin: 5px 0 0; color: var(--text-muted); }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            width: 95%;
+            max-width: 1200px;
+            margin: 20px auto;
         }
-        p.subtitle {
-            margin: 5px 0 0 0;
-            color: #7f8c8d;
-            font-size: 0.9rem;
+
+        @media (min-width: 1024px) {
+            .dashboard { grid-template-columns: 2fr 1fr; }
         }
-        #lab-container {
-            position: relative;
-            margin-top: 2rem;
+
+        .panel {
             background: var(--panel-bg);
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
             overflow: hidden;
-            border: 1px solid #e1e8ed;
-        }
-        canvas {
-            display: block;
-            cursor: grab;
-        }
-        canvas:active {
-            cursor: grabbing;
-        }
-        .controls {
             display: flex;
-            justify-content: center;
-            gap: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-top: 1px solid #e1e8ed;
-            width: 100%;
-            box-sizing: border-box;
+            flex-direction: column;
         }
-        button {
+
+        .panel-header {
+            background: #f7fafc;
             padding: 10px 20px;
-            font-size: 1rem;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            color: #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Canvas Areas */
+        #simCanvas {
+            width: 100%;
+            height: 400px;
+            cursor: grab;
+            background: radial-gradient(circle at center, #ffffff, #edf2f7);
+        }
+        #simCanvas:active { cursor: grabbing; }
+
+        #graphCanvas {
+            width: 100%;
+            height: 300px;
+            background: #1a202c; /* Dark mode for graphs */
+        }
+
+        /* Controls Section */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #f7fafc;
+            border-top: 1px solid var(--border);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #4a5568;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 0.95rem;
+            font-weight: 600;
             border: none;
             border-radius: 6px;
-            background-color: var(--accent);
+            background: var(--accent);
             color: white;
             cursor: pointer;
-            transition: background 0.2s;
-            font-weight: 600;
+            transition: all 0.2s;
         }
-        button:hover {
-            background-color: #2980b9;
+
+        button:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        button.active { background: #e53e3e; }
+        
+        /* Legend for graphs */
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
         }
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Electromagnetic Induction Lab</h1>
-        <p class="subtitle">Drag the magnet through the coil to observe Faraday's Law & Lenz's Law</p>
+        <h1>Faraday's Law & Electromagnetic Induction</h1>
+        <p class="subtitle">Interactive Physics Engine: Analyze Magnetic Flux (Φ) and Induced EMF (ε)</p>
     </header>
 
-    <div id="lab-container">
-        <canvas id="simCanvas" width="800" height="400"></canvas>
-        <div class="controls">
-            <button id="flipBtn">Flip Magnet (N/S)</button>
-            <button id="resetBtn">Reset Position</button>
+    <div class="dashboard">
+        <!-- Left Column: Simulation -->
+        <div class="panel">
+            <div class="panel-header">
+                Interactive Lab Space
+                <button id="autoDriveBtn">Start Auto-Oscillator (SHM)</button>
+            </div>
+            <canvas id="simCanvas" width="800" height="400"></canvas>
+            
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>Number of Turns (N): <span id="turnsVal">5</span></label>
+                    <input type="range" id="turnsSlider" min="1" max="10" value="5">
+                </div>
+                <div class="control-group">
+                    <label>Magnet Strength (B): <span id="strengthVal">100%</span></label>
+                    <input type="range" id="strengthSlider" min="10" max="200" value="100">
+                </div>
+                <div class="control-group" style="justify-content: flex-end;">
+                    <button id="flipBtn">Reverse Polarity (N/S)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Data Graphs -->
+        <div class="panel">
+            <div class="panel-header">
+                Real-Time Data Acquisition
+                <div class="legend">
+                    <span><div class="dot" style="background: var(--graph-flux)"></div> Flux (Φ)</span>
+                    <span><div class="dot" style="background: var(--graph-emf)"></div> EMF (ε)</span>
+                </div>
+            </div>
+            <canvas id="graphCanvas" width="400" height="300"></canvas>
+            <div style="padding: 15px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <strong>Physics Focus:</strong> Observe how the <i>Induced EMF</i> (Red) is highest when the <i>Magnetic Flux</i> (Teal) is changing most rapidly (steepest slope). When Flux peaks (magnet is centered), EMF is zero. $\varepsilon = -N \frac{d\Phi_B}{dt}$
+            </div>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
+        // --- Setup Canvas Contexts ---
+        const simCanvas = document.getElementById('simCanvas');
+        const simCtx = simCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
 
-        // Physics & State Variables
+        // --- Physics State & Variables ---
         let isDragging = false;
-        let lastX = 0;
-        let lastTime = 0;
-        let velocity = 0;
-        let emf = 0;
-        let smoothedEmf = 0; // For realistic galvanometer needle movement
-        let isNorthRight = true;
-
-        const coil = {
-            x: 400,
-            y: 250,
-            radius: 60,
-            width: 120,
-            turns: 5
+        let lastX = 150;
+        let lastTime = performance.now();
+        
+        let physics = {
+            velocity: 0,
+            flux: 0,
+            emf: 0,
+            smoothedEmf: 0,
+            isNorthRight: true,
+            turns: 5,
+            strength: 1.0,
+            autoDrive: false,
+            autoAngle: 0
         };
 
-        const magnet = {
-            x: 150,
-            y: 250,
-            width: 160,
-            height: 40,
-            isHovered: false
-        };
+        const coil = { x: 400, y: 200, radius: 65, width: 140 };
+        const magnet = { x: 150, y: 200, width: 160, height: 45 };
 
-        // Event Listeners for Interaction
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
+        // Data history for graphing (store up to 200 points)
+        const dataHistory = new Array(200).fill({flux: 0, emf: 0});
+
+        // --- DOM Elements ---
+        const turnsSlider = document.getElementById('turnsSlider');
+        const turnsVal = document.getElementById('turnsVal');
+        const strengthSlider = document.getElementById('strengthSlider');
+        const strengthVal = document.getElementById('strengthVal');
+        const flipBtn = document.getElementById('flipBtn');
+        const autoDriveBtn = document.getElementById('autoDriveBtn');
+
+        // --- Event Listeners ---
+        turnsSlider.addEventListener('input', (e) => {
+            physics.turns = parseInt(e.target.value);
+            turnsVal.textContent = physics.turns;
+        });
+
+        strengthSlider.addEventListener('input', (e) => {
+            physics.strength = parseInt(e.target.value) / 100;
+            strengthVal.textContent = e.target.value + '%';
+        });
+
+        flipBtn.addEventListener('click', () => {
+            physics.isNorthRight = !physics.isNorthRight;
+        });
+
+        autoDriveBtn.addEventListener('click', () => {
+            physics.autoDrive = !physics.autoDrive;
+            autoDriveBtn.textContent = physics.autoDrive ? "Stop Oscillator" : "Start Auto-Oscillator (SHM)";
+            autoDriveBtn.classList.toggle('active');
+            if(physics.autoDrive) physics.autoAngle = Math.asin((magnet.x - coil.x) / 300) || 0;
+        });
+
+        // Mouse Interaction
+        simCanvas.addEventListener('mousedown', (e) => {
+            if(physics.autoDrive) return; // Disable drag during auto
+            const rect = simCanvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            if (mouseX > magnet.x - magnet.width/2 && mouseX < magnet.x + magnet.width/2 &&
-                mouseY > magnet.y - magnet.height/2 && mouseY < magnet.y + magnet.height/2) {
+            if (Math.abs(mouseX - magnet.x) < magnet.width/2 && Math.abs(mouseY - magnet.y) < magnet.height/2) {
                 isDragging = true;
                 lastX = mouseX;
                 lastTime = performance.now();
-                magnet.x = mouseX;
             }
         });
 
         window.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            if (mouseX > magnet.x - magnet.width/2 && mouseX < magnet.x + magnet.width/2 &&
-                mouseY > magnet.y - magnet.height/2 && mouseY < magnet.y + magnet.height/2) {
-                magnet.isHovered = true;
-            } else {
-                magnet.isHovered = false;
-            }
-
             if (isDragging) {
-                const currentTime = performance.now();
-                const dt = Math.max(1, currentTime - lastTime);
+                const rect = simCanvas.getBoundingClientRect();
+                let targetX = e.clientX - rect.left;
                 
-                magnet.x = Math.max(magnet.width/2, Math.min(canvas.width - magnet.width/2, mouseX));
-                
-                velocity = (magnet.x - lastX) / dt;
-                
-                lastX = magnet.x;
-                lastTime = currentTime;
+                // Boundaries
+                magnet.x = Math.max(magnet.width/2, Math.min(simCanvas.width - magnet.width/2, targetX));
             }
         });
 
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-            velocity = 0; 
-        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
 
-        // Controls
-        document.getElementById('flipBtn').addEventListener('click', () => {
-            isNorthRight = !isNorthRight;
-        });
-
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            magnet.x = 150;
-            velocity = 0;
-            emf = 0;
-            smoothedEmf = 0;
-        });
-
-        // Physics Calculation
+        // --- The Physics Engine ---
         function updatePhysics() {
-            if (!isDragging) {
-                velocity *= 0.9; 
-                if (Math.abs(velocity) < 0.01) velocity = 0;
+            const currentTime = performance.now();
+            const dt = Math.max(1, currentTime - lastTime) / 1000; // time delta in seconds
+            lastTime = currentTime;
+
+            // Handle Movement
+            if (physics.autoDrive) {
+                physics.autoAngle += 2.0 * dt; // frequency
+                const newX = coil.x + 300 * Math.sin(physics.autoAngle);
+                physics.velocity = (newX - magnet.x) / dt;
+                magnet.x = newX;
+            } else if (isDragging) {
+                physics.velocity = (magnet.x - lastX) / dt;
+                lastX = magnet.x;
+            } else {
+                physics.velocity *= 0.9; // friction
+                if (Math.abs(physics.velocity) < 0.1) physics.velocity = 0;
             }
 
-            const dx = magnet.x - coil.x;
-            const k = 0.0001; 
-            const dPhi_dx = -2 * k * dx * Math.exp(-k * dx * dx);
+            // Calculate Magnetic Flux (Dipole approximation: 1 / (1 + x^2)^1.5 )
+            const dist = (magnet.x - coil.x) / 100; // scaled distance
+            const baseFlux = 1 / Math.pow(1 + dist*dist, 1.5);
             
-            const rawEmf = -coil.turns * dPhi_dx * velocity * 15000;
+            // Flux magnitude is affected by magnet strength and direction
+            let currentFlux = baseFlux * physics.strength;
+            if (!physics.isNorthRight) currentFlux *= -1; // Reverse flux if flipped
+
+            // Calculate EMF = -N * d(Flux)/dt
+            // d(Flux)/dx = -3x / (1+x^2)^2.5
+            const dFlux_dx = (-3 * dist) / Math.pow(1 + dist*dist, 2.5);
+            let rawEmf = -physics.turns * (dFlux_dx * physics.strength) * (physics.velocity / 100);
             
-            emf = isNorthRight ? rawEmf : -rawEmf;
-            smoothedEmf += (emf - smoothedEmf) * 0.15;
+            if (!physics.isNorthRight) rawEmf *= -1; // Lenz's law adjustment for flipped poles
+
+            // Update state
+            physics.flux = currentFlux;
+            physics.emf = rawEmf;
             
-            if (smoothedEmf > 1) smoothedEmf = 1;
-            if (smoothedEmf < -1) smoothedEmf = -1;
+            // Smooth EMF for visual needle (prevent jumping)
+            physics.smoothedEmf += (physics.emf - physics.smoothedEmf) * 0.2;
+
+            // Record data for graph
+            dataHistory.shift();
+            dataHistory.push({
+                flux: physics.flux,
+                emf: Math.max(-1.5, Math.min(1.5, physics.emf * 0.2)) // Scale EMF for graph fitting
+            });
         }
 
-        // Rendering Functions
-        function drawGalvanometer() {
-            ctx.save();
-            ctx.translate(400, 80);
+        // --- Rendering Engine (Simulation) ---
+        function drawMagneticField() {
+            simCtx.save();
+            simCtx.strokeStyle = 'rgba(160, 174, 192, 0.3)'; // Faint grey lines
+            simCtx.lineWidth = 1.5;
 
-            // Casing
-            ctx.beginPath();
-            ctx.arc(0, 0, 60, Math.PI, 0);
-            ctx.lineTo(60, 20);
-            ctx.lineTo(-60, 20);
-            ctx.closePath();
-            ctx.fillStyle = '#ecf0f1';
-            ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = '#bdc3c7';
-            ctx.stroke();
+            const poles = [
+                {x: magnet.x + magnet.width/2, dir: 1}, // Right pole
+                {x: magnet.x - magnet.width/2, dir: -1} // Left pole
+            ];
 
-            // Screen
-            ctx.beginPath();
-            ctx.arc(0, 0, 50, Math.PI, 0);
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.stroke();
-
-            // Ticks
-            ctx.fillStyle = '#2c3e50';
-            ctx.textAlign = 'center';
-            ctx.font = '12px Arial';
-            ctx.fillText("0", 0, -35);
-            ctx.fillText("-", -35, -20);
-            ctx.fillText("+", 35, -20);
-
-            // Needle
-            ctx.rotate(smoothedEmf * (Math.PI / 3)); 
-            ctx.beginPath();
-            ctx.moveTo(0, 5);
-            ctx.lineTo(-2, 0);
-            ctx.lineTo(0, -45);
-            ctx.lineTo(2, 0);
-            ctx.closePath();
-            ctx.fillStyle = '#c0392b';
-            ctx.fill();
-
-            // Center Pin
-            ctx.beginPath();
-            ctx.arc(0, 0, 5, 0, Math.PI * 2);
-            ctx.fillStyle = '#2c3e50';
-            ctx.fill();
-
-            ctx.restore();
+            // Draw field arcs
+            poles.forEach(pole => {
+                for(let i=1; i<=3; i++) {
+                    simCtx.beginPath();
+                    let radiusX = 40 + (i * 30) * physics.strength;
+                    let radiusY = 60 + (i * 40) * physics.strength;
+                    simCtx.ellipse(pole.x, magnet.y, radiusX, radiusY, 0, -Math.PI/2, Math.PI/2, pole.dir < 0);
+                    simCtx.stroke();
+                }
+            });
+            simCtx.restore();
         }
 
         function drawCoil() {
-            ctx.save();
-            ctx.lineWidth = 6;
-            ctx.lineJoin = 'round';
+            simCtx.save();
+            simCtx.lineWidth = 6;
+            simCtx.lineJoin = 'round';
 
-            // Draw back half of the loops (Left side of the ellipse)
-            ctx.strokeStyle = '#a0522d'; 
-            for (let i = 0; i < coil.turns; i++) {
-                let loopX = coil.x - coil.width/2 + i * (coil.width / (coil.turns - 1));
-                ctx.beginPath();
-                ctx.ellipse(loopX, coil.y, 15, coil.radius, 0, Math.PI/2, 1.5 * Math.PI);
-                ctx.stroke();
+            // Draw back half of loops (standing up correctly)
+            simCtx.strokeStyle = '#a0522d'; 
+            for (let i = 0; i < physics.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
+                if(physics.turns === 1) loopX = coil.x; // Handle single turn case
+                
+                simCtx.beginPath();
+                simCtx.ellipse(loopX, coil.y, 15, coil.radius, 0, Math.PI/2, 1.5 * Math.PI);
+                simCtx.stroke();
             }
 
-            // Draw magnet (so it appears inside the coil)
+            // Draw Magnet in the middle
             drawMagnet();
 
-            // Draw front half of the loops (Right side of the ellipse)
-            ctx.strokeStyle = '#cd7f32'; 
-            for (let i = 0; i < coil.turns; i++) {
-                let loopX = coil.x - coil.width/2 + i * (coil.width / (coil.turns - 1));
-                ctx.beginPath();
-                ctx.ellipse(loopX, coil.y, 15, coil.radius, 0, -Math.PI/2, Math.PI/2);
-                ctx.stroke();
+            // Draw front half of loops
+            simCtx.strokeStyle = '#cd7f32'; 
+            for (let i = 0; i < physics.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
+                if(physics.turns === 1) loopX = coil.x;
+
+                simCtx.beginPath();
+                simCtx.ellipse(loopX, coil.y, 15, coil.radius, 0, -Math.PI/2, Math.PI/2);
+                simCtx.stroke();
             }
 
-            // Connecting wires to Galvanometer
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = '#7f8c8d';
+            // Circuit wires connected to galvanometer
+            simCtx.lineWidth = 3;
+            simCtx.strokeStyle = '#718096';
             
-            // Left wire
-            ctx.beginPath();
-            ctx.moveTo(340, coil.y + coil.radius);
-            ctx.lineTo(340, 100);
-            ctx.stroke();
+            const leftWireX = physics.turns === 1 ? coil.x : coil.x - coil.width/2;
+            const rightWireX = physics.turns === 1 ? coil.x : coil.x + coil.width/2;
 
-            // Right wire
-            ctx.beginPath();
-            ctx.moveTo(460, coil.y + coil.radius);
-            ctx.lineTo(460, 100);
-            ctx.stroke();
+            simCtx.beginPath();
+            simCtx.moveTo(leftWireX, coil.y + coil.radius);
+            simCtx.lineTo(coil.x - 60, coil.y + coil.radius + 20);
+            simCtx.lineTo(coil.x - 60, 100);
+            simCtx.stroke();
 
-            ctx.restore();
+            simCtx.beginPath();
+            simCtx.moveTo(rightWireX, coil.y + coil.radius);
+            simCtx.lineTo(coil.x + 60, coil.y + coil.radius + 20);
+            simCtx.lineTo(coil.x + 60, 100);
+            simCtx.stroke();
+
+            simCtx.restore();
         }
 
         function drawMagnet() {
-            ctx.save();
-            ctx.translate(magnet.x, magnet.y);
-            
-            // Drop shadow
-            ctx.shadowColor = 'rgba(0,0,0,0.3)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetY = 5;
+            simCtx.save();
+            simCtx.translate(magnet.x, magnet.y);
+            simCtx.shadowColor = 'rgba(0,0,0,0.3)';
+            simCtx.shadowBlur = 10;
+            simCtx.shadowOffsetY = 5;
 
-            // Direct Hex colors
-            const colorN = '#e74c3c'; // Red
-            const colorS = '#34495e'; // Dark Slate
+            const colorN = '#e53e3e'; // Red
+            const colorS = '#2b6cb0'; // Blue
+
+            // Magnet body scaled by strength
+            const scaleY = 0.8 + (physics.strength * 0.2);
+            simCtx.scale(1, scaleY);
 
             // Left Pole
-            ctx.fillStyle = isNorthRight ? colorS : colorN;
-            ctx.fillRect(-magnet.width/2, -magnet.height/2, magnet.width/2, magnet.height);
+            simCtx.fillStyle = physics.isNorthRight ? colorS : colorN;
+            simCtx.fillRect(-magnet.width/2, -magnet.height/2, magnet.width/2, magnet.height);
             
             // Right Pole
-            ctx.fillStyle = isNorthRight ? colorN : colorS;
-            ctx.fillRect(0, -magnet.height/2, magnet.width/2, magnet.height);
+            simCtx.fillStyle = physics.isNorthRight ? colorN : colorS;
+            simCtx.fillRect(0, -magnet.height/2, magnet.width/2, magnet.height);
 
-            // Labels
-            ctx.shadowColor = 'transparent';
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(isNorthRight ? "S" : "N", -magnet.width/4, 0);
-            ctx.fillText(isNorthRight ? "N" : "S", magnet.width/4, 0);
+            // Pole Labels
+            simCtx.shadowColor = 'transparent';
+            simCtx.fillStyle = 'white';
+            simCtx.font = 'bold 22px Arial';
+            simCtx.textAlign = 'center';
+            simCtx.textBaseline = 'middle';
+            simCtx.fillText(physics.isNorthRight ? "S" : "N", -magnet.width/4, 0);
+            simCtx.fillText(physics.isNorthRight ? "N" : "S", magnet.width/4, 0);
 
-            ctx.restore();
+            simCtx.restore();
+        }
+
+        function drawGalvanometer() {
+            simCtx.save();
+            simCtx.translate(coil.x, 70);
+
+            // Meter Body
+            simCtx.beginPath();
+            simCtx.arc(0, 0, 50, Math.PI, 0);
+            simCtx.lineTo(50, 30);
+            simCtx.lineTo(-50, 30);
+            simCtx.closePath();
+            simCtx.fillStyle = '#f7fafc';
+            simCtx.fill();
+            simCtx.lineWidth = 3;
+            simCtx.strokeStyle = '#cbd5e0';
+            simCtx.stroke();
+
+            // Screen
+            simCtx.beginPath();
+            simCtx.arc(0, 0, 40, Math.PI, 0);
+            simCtx.fillStyle = '#ffffff';
+            simCtx.fill();
+            simCtx.stroke();
+
+            // Ticks & Labels
+            simCtx.fillStyle = '#4a5568';
+            simCtx.textAlign = 'center';
+            simCtx.font = '12px Arial';
+            simCtx.fillText("0", 0, -25);
+            simCtx.fillText("-", -25, -15);
+            simCtx.fillText("+", 25, -15);
+
+            // Needle mapped to EMF
+            let deflection = physics.smoothedEmf * 0.1; 
+            if(deflection > 1) deflection = 1;
+            if(deflection < -1) deflection = -1;
+
+            simCtx.rotate(deflection * (Math.PI / 3)); 
+            
+            simCtx.beginPath();
+            simCtx.moveTo(0, 5);
+            simCtx.lineTo(-2, 0);
+            simCtx.lineTo(0, -38);
+            simCtx.lineTo(2, 0);
+            simCtx.closePath();
+            simCtx.fillStyle = '#e53e3e';
+            simCtx.fill();
+
+            // Center Pin
+            simCtx.beginPath();
+            simCtx.arc(0, 0, 4, 0, Math.PI * 2);
+            simCtx.fillStyle = '#2d3748';
+            simCtx.fill();
+
+            simCtx.restore();
         }
 
         function drawElectrons() {
-            if (Math.abs(smoothedEmf) < 0.05) return;
+            if (Math.abs(physics.smoothedEmf) < 0.2) return;
 
             const time = performance.now() / 1000;
-            const speed = smoothedEmf * 5; 
-            const offset = (time * speed * 20) % 20;
+            const speed = physics.smoothedEmf * 0.5; // Direction and speed of current
+            const offset = (time * speed * 30) % 30;
 
-            ctx.fillStyle = '#f1c40f'; 
+            simCtx.fillStyle = '#ecc94b'; // Yellow electrons
             
-            for(let i=0; i<5; i++) {
-                let y = 100 + ((i * 20 + offset + 100) % 100);
-                ctx.beginPath();
-                ctx.arc(340, y, 4, 0, Math.PI*2);
-                ctx.fill();
+            // Left wire animation
+            for(let i=0; i<4; i++) {
+                let y = 100 + ((i * 30 + offset + 120) % 120);
+                simCtx.beginPath();
+                simCtx.arc(coil.x - 60, y, 4, 0, Math.PI*2);
+                simCtx.fill();
+            }
+
+            // Right wire animation (opposite direction)
+            for(let i=0; i<4; i++) {
+                let y = 100 + ((120 - (i * 30 + offset + 120) % 120));
+                simCtx.beginPath();
+                simCtx.arc(coil.x + 60, y, 4, 0, Math.PI*2);
+                simCtx.fill();
             }
         }
 
+        // --- Rendering Engine (Live Graphs) ---
+        function drawGraphs() {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            const midY = h / 2;
+
+            // Draw Grid Lines
+            graphCtx.strokeStyle = '#2d3748';
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, midY);
+            graphCtx.lineTo(w, midY);
+            graphCtx.stroke();
+            
+            graphCtx.strokeStyle = '#4a5568';
+            graphCtx.setLineDash([5, 5]);
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, midY - 75); graphCtx.lineTo(w, midY - 75);
+            graphCtx.moveTo(0, midY + 75); graphCtx.lineTo(w, midY + 75);
+            graphCtx.stroke();
+            graphCtx.setLineDash([]);
+
+            // Draw Data Lines
+            const drawDataLine = (dataKey, color, scaleY) => {
+                graphCtx.beginPath();
+                graphCtx.strokeStyle = color;
+                graphCtx.lineWidth = 2.5;
+                graphCtx.lineJoin = 'round';
+                
+                for(let i = 0; i < dataHistory.length; i++) {
+                    let x = (i / dataHistory.length) * w;
+                    let val = dataHistory[i][dataKey];
+                    let y = midY - (val * scaleY);
+                    
+                    if(i === 0) graphCtx.moveTo(x, y);
+                    else graphCtx.lineTo(x, y);
+                }
+                graphCtx.stroke();
+            };
+
+            // Scale factors for visual representation
+            drawDataLine('flux', '#38b2ac', 80); // Teal: Flux
+            drawDataLine('emf', '#e53e3e', 40);  // Red: EMF
+        }
+
+        // --- Main Game Loop ---
         function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
             
             updatePhysics();
-            drawGalvanometer();
+            
+            drawMagneticField();
             drawCoil(); 
+            drawGalvanometer();
             drawElectrons();
+            
+            drawGraphs();
 
             requestAnimationFrame(animate);
         }
 
+        // Start application
         animate();
     </script>
 </body>
