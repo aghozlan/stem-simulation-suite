@@ -12,10 +12,9 @@
             --text-main: #2d3748;
             --text-muted: #718096;
             --accent: #3182ce;
-            --accent-hover: #2b6cb0;
             --border: #e2e8f0;
-            --graph-flux: #38b2ac; /* Teal */
-            --graph-emf: #e53e3e;  /* Red */
+            --graph-flux: #4fd1c5; /* Bright Teal */
+            --graph-emf: #fc8181;  /* Bright Red */
         }
 
         body {
@@ -57,7 +56,7 @@
         .panel {
             background: var(--panel-bg);
             border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             border: 1px solid var(--border);
             overflow: hidden;
             display: flex;
@@ -66,7 +65,7 @@
 
         .panel-header {
             background: #f7fafc;
-            padding: 10px 20px;
+            padding: 15px 20px;
             font-weight: bold;
             border-bottom: 1px solid var(--border);
             color: #4a5568;
@@ -75,36 +74,58 @@
             align-items: center;
         }
 
-        /* Canvas Areas */
+        /* Mode Toggle Switch */
+        .mode-toggle {
+            display: flex;
+            background: #edf2f7;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: #ffffff;
+            color: var(--accent);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Dark Mode Canvas for glowing effects */
         #simCanvas {
             width: 100%;
-            height: 400px;
-            cursor: grab;
-            background: radial-gradient(circle at center, #ffffff, #edf2f7);
+            height: 450px;
+            background: radial-gradient(circle at center, #2d3748, #1a202c);
         }
-        #simCanvas:active { cursor: grabbing; }
+        #simCanvas.interactive { cursor: grab; }
+        #simCanvas.interactive:active { cursor: grabbing; }
 
         #graphCanvas {
             width: 100%;
             height: 300px;
-            background: #1a202c; /* Dark mode for graphs */
+            background: #1a202c; 
         }
 
         /* Controls Section */
         .controls-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            gap: 20px;
             padding: 20px;
             background: #f7fafc;
             border-top: 1px solid var(--border);
         }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
 
         label {
             font-size: 0.9rem;
@@ -114,32 +135,24 @@
             justify-content: space-between;
         }
 
-        input[type="range"] {
-            width: 100%;
-            accent-color: var(--accent);
-        }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-        button {
+        .btn-action {
             padding: 10px 15px;
             font-size: 0.95rem;
             font-weight: 600;
             border: none;
             border-radius: 6px;
-            background: var(--accent);
+            background: #e53e3e;
             color: white;
             cursor: pointer;
             transition: all 0.2s;
+            height: fit-content;
+            align-self: flex-end;
         }
-
-        button:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        button.active { background: #e53e3e; }
+        .btn-action:hover { background: #c53030; }
         
-        /* Legend for graphs */
-        .legend {
-            display: flex;
-            gap: 15px;
-            font-size: 0.85rem;
-        }
+        .legend { display: flex; gap: 15px; font-size: 0.85rem; }
         .legend span { display: flex; align-items: center; gap: 5px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     </style>
@@ -148,7 +161,7 @@
 
     <header>
         <h1>Faraday's Law & Electromagnetic Induction</h1>
-        <p class="subtitle">Interactive Physics Engine: Analyze Magnetic Flux (Φ) and Induced EMF (ε)</p>
+        <p class="subtitle">Observe energy conversion and induced current as the magnetic flux changes.</p>
     </header>
 
     <div class="dashboard">
@@ -156,9 +169,12 @@
         <div class="panel">
             <div class="panel-header">
                 Interactive Lab Space
-                <button id="autoDriveBtn">Start Auto-Oscillator (SHM)</button>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" id="btnInteractive">✋ Interactive</button>
+                    <button class="mode-btn" id="btnAnimated">🎬 Animated</button>
+                </div>
             </div>
-            <canvas id="simCanvas" width="800" height="400"></canvas>
+            <canvas id="simCanvas" width="800" height="450" class="interactive"></canvas>
             
             <div class="controls-grid">
                 <div class="control-group">
@@ -169,8 +185,8 @@
                     <label>Magnet Strength (B): <span id="strengthVal">100%</span></label>
                     <input type="range" id="strengthSlider" min="10" max="200" value="100">
                 </div>
-                <div class="control-group" style="justify-content: flex-end;">
-                    <button id="flipBtn">Reverse Polarity (N/S)</button>
+                <div class="control-group">
+                    <button class="btn-action" id="flipBtn">Reverse Polarity (N/S)</button>
                 </div>
             </div>
         </div>
@@ -186,7 +202,7 @@
             </div>
             <canvas id="graphCanvas" width="400" height="300"></canvas>
             <div style="padding: 15px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
-                <strong>Physics Focus:</strong> Observe how the <i>Induced EMF</i> (Red) is highest when the <i>Magnetic Flux</i> (Teal) is changing most rapidly (steepest slope). When Flux peaks (magnet is centered), EMF is zero. $\varepsilon = -N \frac{d\Phi_B}{dt}$
+                <strong>Physics Focus:</strong> Observe how the <i>Lightbulb brightness</i> correlates exactly with the peaks in the Red EMF graph. Energy is only induced when the magnet is <strong>in motion</strong>, changing the flux. $\varepsilon = -N \frac{d\Phi_B}{dt}$
             </div>
         </div>
     </div>
@@ -202,6 +218,7 @@
         let isDragging = false;
         let lastX = 150;
         let lastTime = performance.now();
+        let flowOffset = 0; // For animating electrons along the wire
         
         let physics = {
             velocity: 0,
@@ -211,14 +228,17 @@
             isNorthRight: true,
             turns: 5,
             strength: 1.0,
-            autoDrive: false,
+            mode: 'interactive', // 'interactive' or 'animated'
             autoAngle: 0
         };
 
-        const coil = { x: 400, y: 200, radius: 65, width: 140 };
-        const magnet = { x: 150, y: 200, width: 160, height: 45 };
+        // Layout Coordinates
+        const coil = { x: 400, y: 260, radius: 75, width: 150 };
+        const magnet = { x: 150, y: 260, width: 160, height: 45 };
+        const galvo = { x: 400, y: 80 };
+        const bulb = { x: 600, y: 170 }; // Positioned on the right wire
 
-        // Data history for graphing (store up to 200 points)
+        // Data history for graphing
         const dataHistory = new Array(200).fill({flux: 0, emf: 0});
 
         // --- DOM Elements ---
@@ -227,7 +247,8 @@
         const strengthSlider = document.getElementById('strengthSlider');
         const strengthVal = document.getElementById('strengthVal');
         const flipBtn = document.getElementById('flipBtn');
-        const autoDriveBtn = document.getElementById('autoDriveBtn');
+        const btnInteractive = document.getElementById('btnInteractive');
+        const btnAnimated = document.getElementById('btnAnimated');
 
         // --- Event Listeners ---
         turnsSlider.addEventListener('input', (e) => {
@@ -244,21 +265,30 @@
             physics.isNorthRight = !physics.isNorthRight;
         });
 
-        autoDriveBtn.addEventListener('click', () => {
-            physics.autoDrive = !physics.autoDrive;
-            autoDriveBtn.textContent = physics.autoDrive ? "Stop Oscillator" : "Start Auto-Oscillator (SHM)";
-            autoDriveBtn.classList.toggle('active');
-            if(physics.autoDrive) physics.autoAngle = Math.asin((magnet.x - coil.x) / 300) || 0;
+        btnInteractive.addEventListener('click', () => {
+            physics.mode = 'interactive';
+            btnInteractive.classList.add('active');
+            btnAnimated.classList.remove('active');
+            simCanvas.classList.add('interactive');
+        });
+
+        btnAnimated.addEventListener('click', () => {
+            physics.mode = 'animated';
+            btnAnimated.classList.add('active');
+            btnInteractive.classList.remove('active');
+            simCanvas.classList.remove('interactive');
+            physics.autoAngle = Math.asin((magnet.x - coil.x) / 300) || 0;
+            isDragging = false;
         });
 
         // Mouse Interaction
         simCanvas.addEventListener('mousedown', (e) => {
-            if(physics.autoDrive) return; // Disable drag during auto
+            if(physics.mode === 'animated') return;
             const rect = simCanvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            if (Math.abs(mouseX - magnet.x) < magnet.width/2 && Math.abs(mouseY - magnet.y) < magnet.height/2) {
+            if (Math.abs(mouseX - magnet.x) < magnet.width/2 + 20 && Math.abs(mouseY - magnet.y) < magnet.height/2 + 20) {
                 isDragging = true;
                 lastX = mouseX;
                 lastTime = performance.now();
@@ -266,26 +296,24 @@
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
+            if (isDragging && physics.mode === 'interactive') {
                 const rect = simCanvas.getBoundingClientRect();
                 let targetX = e.clientX - rect.left;
-                
-                // Boundaries
                 magnet.x = Math.max(magnet.width/2, Math.min(simCanvas.width - magnet.width/2, targetX));
             }
         });
 
         window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mouseleave', () => { isDragging = false; });
 
         // --- The Physics Engine ---
         function updatePhysics() {
             const currentTime = performance.now();
-            const dt = Math.max(1, currentTime - lastTime) / 1000; // time delta in seconds
+            const dt = Math.max(1, currentTime - lastTime) / 1000; 
             lastTime = currentTime;
 
-            // Handle Movement
-            if (physics.autoDrive) {
-                physics.autoAngle += 2.0 * dt; // frequency
+            if (physics.mode === 'animated') {
+                physics.autoAngle += 2.0 * dt; 
                 const newX = coil.x + 300 * Math.sin(physics.autoAngle);
                 physics.velocity = (newX - magnet.x) / dt;
                 magnet.x = newX;
@@ -293,57 +321,55 @@
                 physics.velocity = (magnet.x - lastX) / dt;
                 lastX = magnet.x;
             } else {
-                physics.velocity *= 0.9; // friction
+                physics.velocity *= 0.9; 
                 if (Math.abs(physics.velocity) < 0.1) physics.velocity = 0;
             }
 
-            // Calculate Magnetic Flux (Dipole approximation: 1 / (1 + x^2)^1.5 )
-            const dist = (magnet.x - coil.x) / 100; // scaled distance
+            const dist = (magnet.x - coil.x) / 100; 
             const baseFlux = 1 / Math.pow(1 + dist*dist, 1.5);
             
-            // Flux magnitude is affected by magnet strength and direction
             let currentFlux = baseFlux * physics.strength;
-            if (!physics.isNorthRight) currentFlux *= -1; // Reverse flux if flipped
+            if (!physics.isNorthRight) currentFlux *= -1; 
 
-            // Calculate EMF = -N * d(Flux)/dt
-            // d(Flux)/dx = -3x / (1+x^2)^2.5
             const dFlux_dx = (-3 * dist) / Math.pow(1 + dist*dist, 2.5);
             let rawEmf = -physics.turns * (dFlux_dx * physics.strength) * (physics.velocity / 100);
             
-            if (!physics.isNorthRight) rawEmf *= -1; // Lenz's law adjustment for flipped poles
+            if (!physics.isNorthRight) rawEmf *= -1; 
 
-            // Update state
             physics.flux = currentFlux;
             physics.emf = rawEmf;
-            
-            // Smooth EMF for visual needle (prevent jumping)
-            physics.smoothedEmf += (physics.emf - physics.smoothedEmf) * 0.2;
+            physics.smoothedEmf += (physics.emf - physics.smoothedEmf) * 0.15;
 
-            // Record data for graph
+            // Update electron flow position
+            flowOffset += physics.smoothedEmf * 3;
+
             dataHistory.shift();
             dataHistory.push({
                 flux: physics.flux,
-                emf: Math.max(-1.5, Math.min(1.5, physics.emf * 0.2)) // Scale EMF for graph fitting
+                emf: Math.max(-1.5, Math.min(1.5, physics.emf * 0.2)) 
             });
         }
 
         // --- Rendering Engine (Simulation) ---
         function drawMagneticField() {
             simCtx.save();
-            simCtx.strokeStyle = 'rgba(160, 174, 192, 0.3)'; // Faint grey lines
-            simCtx.lineWidth = 1.5;
+            simCtx.lineWidth = 2;
 
             const poles = [
-                {x: magnet.x + magnet.width/2, dir: 1}, // Right pole
-                {x: magnet.x - magnet.width/2, dir: -1} // Left pole
+                {x: magnet.x + magnet.width/2, dir: 1}, 
+                {x: magnet.x - magnet.width/2, dir: -1} 
             ];
 
-            // Draw field arcs
+            // Glow intensity based on strength
+            simCtx.shadowBlur = 10;
+            simCtx.shadowColor = 'rgba(255,255,255,0.2)';
+
             poles.forEach(pole => {
                 for(let i=1; i<=3; i++) {
                     simCtx.beginPath();
-                    let radiusX = 40 + (i * 30) * physics.strength;
-                    let radiusY = 60 + (i * 40) * physics.strength;
+                    simCtx.strokeStyle = `rgba(160, 174, 192, ${0.4 - (i*0.1)})`;
+                    let radiusX = 50 + (i * 40) * physics.strength;
+                    let radiusY = 70 + (i * 50) * physics.strength;
                     simCtx.ellipse(pole.x, magnet.y, radiusX, radiusY, 0, -Math.PI/2, Math.PI/2, pole.dir < 0);
                     simCtx.stroke();
                 }
@@ -351,84 +377,99 @@
             simCtx.restore();
         }
 
-        function drawCoil() {
+        function drawCircuit() {
             simCtx.save();
-            simCtx.lineWidth = 6;
+            simCtx.lineWidth = 4;
+            simCtx.strokeStyle = '#4a5568'; // Dark wire color
             simCtx.lineJoin = 'round';
 
-            // Draw back half of loops (standing up correctly)
-            simCtx.strokeStyle = '#a0522d'; 
-            for (let i = 0; i < physics.turns; i++) {
-                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
-                if(physics.turns === 1) loopX = coil.x; // Handle single turn case
-                
-                simCtx.beginPath();
-                simCtx.ellipse(loopX, coil.y, 15, coil.radius, 0, Math.PI/2, 1.5 * Math.PI);
-                simCtx.stroke();
-            }
+            const leftWireX = coil.x - coil.width/2;
+            const rightWireX = coil.x + coil.width/2;
 
-            // Draw Magnet in the middle
-            drawMagnet();
-
-            // Draw front half of loops
-            simCtx.strokeStyle = '#cd7f32'; 
-            for (let i = 0; i < physics.turns; i++) {
-                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
-                if(physics.turns === 1) loopX = coil.x;
-
-                simCtx.beginPath();
-                simCtx.ellipse(loopX, coil.y, 15, coil.radius, 0, -Math.PI/2, Math.PI/2);
-                simCtx.stroke();
-            }
-
-            // Circuit wires connected to galvanometer
-            simCtx.lineWidth = 3;
-            simCtx.strokeStyle = '#718096';
-            
-            const leftWireX = physics.turns === 1 ? coil.x : coil.x - coil.width/2;
-            const rightWireX = physics.turns === 1 ? coil.x : coil.x + coil.width/2;
-
+            // Left Wire (Coil to Galvo)
             simCtx.beginPath();
             simCtx.moveTo(leftWireX, coil.y + coil.radius);
-            simCtx.lineTo(coil.x - 60, coil.y + coil.radius + 20);
-            simCtx.lineTo(coil.x - 60, 100);
+            simCtx.lineTo(200, coil.y + coil.radius);
+            simCtx.lineTo(200, galvo.y);
+            simCtx.lineTo(galvo.x - 40, galvo.y);
+            simCtx.stroke();
+
+            // Right Wire (Galvo to Bulb to Coil)
+            simCtx.beginPath();
+            simCtx.moveTo(galvo.x + 40, galvo.y);
+            simCtx.lineTo(bulb.x, galvo.y);
+            simCtx.lineTo(bulb.x, bulb.y - 15); // Top of bulb
             simCtx.stroke();
 
             simCtx.beginPath();
-            simCtx.moveTo(rightWireX, coil.y + coil.radius);
-            simCtx.lineTo(coil.x + 60, coil.y + coil.radius + 20);
-            simCtx.lineTo(coil.x + 60, 100);
+            simCtx.moveTo(bulb.x, bulb.y + 15); // Bottom of bulb
+            simCtx.lineTo(bulb.x, coil.y + coil.radius);
+            simCtx.lineTo(rightWireX, coil.y + coil.radius);
             simCtx.stroke();
 
+            simCtx.restore();
+        }
+
+        function drawCoil() {
+            simCtx.save();
+            simCtx.lineWidth = 8;
+            simCtx.lineJoin = 'round';
+
+            // Metallic gradient for copper
+            const copperDark = '#8B4513';
+            const copperLight = '#CD853F';
+
+            // Back half
+            simCtx.strokeStyle = copperDark; 
+            for (let i = 0; i < physics.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
+                simCtx.beginPath();
+                simCtx.ellipse(loopX, coil.y, 18, coil.radius, 0, Math.PI/2, 1.5 * Math.PI);
+                simCtx.stroke();
+            }
+
+            drawMagnet();
+
+            // Front half
+            simCtx.strokeStyle = copperLight; 
+            for (let i = 0; i < physics.turns; i++) {
+                let loopX = coil.x - coil.width/2 + i * (coil.width / Math.max(1, physics.turns - 1));
+                simCtx.beginPath();
+                simCtx.ellipse(loopX, coil.y, 18, coil.radius, 0, -Math.PI/2, Math.PI/2);
+                simCtx.stroke();
+            }
             simCtx.restore();
         }
 
         function drawMagnet() {
             simCtx.save();
             simCtx.translate(magnet.x, magnet.y);
-            simCtx.shadowColor = 'rgba(0,0,0,0.3)';
-            simCtx.shadowBlur = 10;
-            simCtx.shadowOffsetY = 5;
+            simCtx.shadowColor = 'rgba(0,0,0,0.8)';
+            simCtx.shadowBlur = 15;
+            simCtx.shadowOffsetY = 8;
 
-            const colorN = '#e53e3e'; // Red
-            const colorS = '#2b6cb0'; // Blue
+            const colorN = '#e53e3e'; 
+            const colorS = '#3182ce'; 
 
-            // Magnet body scaled by strength
             const scaleY = 0.8 + (physics.strength * 0.2);
             simCtx.scale(1, scaleY);
 
-            // Left Pole
-            simCtx.fillStyle = physics.isNorthRight ? colorS : colorN;
+            // Metallic sheen on magnet
+            let gradN = simCtx.createLinearGradient(0, -magnet.height/2, 0, magnet.height/2);
+            gradN.addColorStop(0, '#fc8181'); gradN.addColorStop(0.5, colorN); gradN.addColorStop(1, '#9b2c2c');
+            
+            let gradS = simCtx.createLinearGradient(0, -magnet.height/2, 0, magnet.height/2);
+            gradS.addColorStop(0, '#63b3ed'); gradS.addColorStop(0.5, colorS); gradS.addColorStop(1, '#2c5282');
+
+            simCtx.fillStyle = physics.isNorthRight ? gradS : gradN;
             simCtx.fillRect(-magnet.width/2, -magnet.height/2, magnet.width/2, magnet.height);
             
-            // Right Pole
-            simCtx.fillStyle = physics.isNorthRight ? colorN : colorS;
+            simCtx.fillStyle = physics.isNorthRight ? gradN : gradS;
             simCtx.fillRect(0, -magnet.height/2, magnet.width/2, magnet.height);
 
-            // Pole Labels
             simCtx.shadowColor = 'transparent';
             simCtx.fillStyle = 'white';
-            simCtx.font = 'bold 22px Arial';
+            simCtx.font = 'bold 24px Arial';
             simCtx.textAlign = 'center';
             simCtx.textBaseline = 'middle';
             simCtx.fillText(physics.isNorthRight ? "S" : "N", -magnet.width/4, 0);
@@ -437,48 +478,108 @@
             simCtx.restore();
         }
 
+        function drawBulb() {
+            simCtx.save();
+            
+            // Calculate Brightness based on EMF
+            const brightness = Math.min(1, Math.abs(physics.smoothedEmf) * 1.5);
+            
+            // Bulb Base (Screw)
+            simCtx.fillStyle = '#a0aec0';
+            simCtx.fillRect(bulb.x - 12, bulb.y + 5, 24, 15);
+            simCtx.fillStyle = '#718096';
+            simCtx.fillRect(bulb.x - 8, bulb.y + 20, 16, 6);
+
+            // Glass Bulb
+            simCtx.beginPath();
+            simCtx.arc(bulb.x, bulb.y - 10, 22, 0, Math.PI * 2);
+            
+            // Dynamic Glow
+            if (brightness > 0.05) {
+                simCtx.shadowBlur = 40 * brightness;
+                simCtx.shadowColor = '#faf089';
+                simCtx.fillStyle = `rgba(250, 240, 137, ${brightness})`;
+                simCtx.fill();
+                
+                // Filament glow
+                simCtx.beginPath();
+                simCtx.moveTo(bulb.x - 8, bulb.y + 5);
+                simCtx.lineTo(bulb.x - 4, bulb.y - 15);
+                simCtx.lineTo(bulb.x + 4, bulb.y - 15);
+                simCtx.lineTo(bulb.x + 8, bulb.y + 5);
+                simCtx.strokeStyle = '#fff';
+                simCtx.lineWidth = 2;
+                simCtx.stroke();
+            } else {
+                simCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                simCtx.fill();
+                
+                // Dim filament
+                simCtx.beginPath();
+                simCtx.moveTo(bulb.x - 8, bulb.y + 5);
+                simCtx.lineTo(bulb.x - 4, bulb.y - 15);
+                simCtx.lineTo(bulb.x + 4, bulb.y - 15);
+                simCtx.lineTo(bulb.x + 8, bulb.y + 5);
+                simCtx.strokeStyle = '#4a5568';
+                simCtx.lineWidth = 2;
+                simCtx.stroke();
+            }
+
+            // Glass outline
+            simCtx.shadowBlur = 0;
+            simCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+            simCtx.lineWidth = 2;
+            simCtx.stroke();
+
+            simCtx.restore();
+        }
+
         function drawGalvanometer() {
             simCtx.save();
-            simCtx.translate(coil.x, 70);
+            simCtx.translate(galvo.x, galvo.y);
+
+            // Screen glow
+            simCtx.shadowBlur = 15;
+            simCtx.shadowColor = 'rgba(0,0,0,0.5)';
 
             // Meter Body
             simCtx.beginPath();
-            simCtx.arc(0, 0, 50, Math.PI, 0);
-            simCtx.lineTo(50, 30);
-            simCtx.lineTo(-50, 30);
+            simCtx.arc(0, 0, 45, Math.PI, 0);
+            simCtx.lineTo(45, 25);
+            simCtx.lineTo(-45, 25);
             simCtx.closePath();
-            simCtx.fillStyle = '#f7fafc';
+            simCtx.fillStyle = '#2d3748';
             simCtx.fill();
             simCtx.lineWidth = 3;
-            simCtx.strokeStyle = '#cbd5e0';
+            simCtx.strokeStyle = '#4a5568';
             simCtx.stroke();
 
             // Screen
+            simCtx.shadowBlur = 0;
             simCtx.beginPath();
-            simCtx.arc(0, 0, 40, Math.PI, 0);
-            simCtx.fillStyle = '#ffffff';
+            simCtx.arc(0, 0, 35, Math.PI, 0);
+            simCtx.fillStyle = '#edf2f7';
             simCtx.fill();
-            simCtx.stroke();
 
             // Ticks & Labels
-            simCtx.fillStyle = '#4a5568';
+            simCtx.fillStyle = '#1a202c';
             simCtx.textAlign = 'center';
-            simCtx.font = '12px Arial';
-            simCtx.fillText("0", 0, -25);
-            simCtx.fillText("-", -25, -15);
-            simCtx.fillText("+", 25, -15);
+            simCtx.font = 'bold 12px Arial';
+            simCtx.fillText("0", 0, -20);
+            simCtx.fillText("-", -20, -10);
+            simCtx.fillText("+", 20, -10);
 
-            // Needle mapped to EMF
-            let deflection = physics.smoothedEmf * 0.1; 
+            let deflection = physics.smoothedEmf * 0.15; 
             if(deflection > 1) deflection = 1;
             if(deflection < -1) deflection = -1;
 
             simCtx.rotate(deflection * (Math.PI / 3)); 
             
+            // Needle
             simCtx.beginPath();
             simCtx.moveTo(0, 5);
             simCtx.lineTo(-2, 0);
-            simCtx.lineTo(0, -38);
+            simCtx.lineTo(0, -32);
             simCtx.lineTo(2, 0);
             simCtx.closePath();
             simCtx.fillStyle = '#e53e3e';
@@ -487,36 +588,59 @@
             // Center Pin
             simCtx.beginPath();
             simCtx.arc(0, 0, 4, 0, Math.PI * 2);
-            simCtx.fillStyle = '#2d3748';
+            simCtx.fillStyle = '#1a202c';
             simCtx.fill();
 
             simCtx.restore();
         }
 
         function drawElectrons() {
-            if (Math.abs(physics.smoothedEmf) < 0.2) return;
+            if (Math.abs(physics.smoothedEmf) < 0.1) return;
 
-            const time = performance.now() / 1000;
-            const speed = physics.smoothedEmf * 0.5; // Direction and speed of current
-            const offset = (time * speed * 30) % 30;
+            simCtx.fillStyle = '#ecc94b'; // Yellow charge carriers
+            simCtx.shadowBlur = 8;
+            simCtx.shadowColor = '#ecc94b';
 
-            simCtx.fillStyle = '#ecc94b'; // Yellow electrons
+            // We calculate electron positions based on the flowOffset
+            const spacing = 40; // distance between electrons
             
-            // Left wire animation
-            for(let i=0; i<4; i++) {
-                let y = 100 + ((i * 30 + offset + 120) % 120);
-                simCtx.beginPath();
-                simCtx.arc(coil.x - 60, y, 4, 0, Math.PI*2);
-                simCtx.fill();
+            // Define the circuit path coordinates sequentially
+            // Left wire up, top to galvo, galvo to bulb, bulb down, right wire to coil
+            const pathSegments = [
+                {x1: coil.x - coil.width/2, y1: coil.y + coil.radius, x2: 200, y2: coil.y + coil.radius},
+                {x1: 200, y1: coil.y + coil.radius, x2: 200, y2: galvo.y},
+                {x1: 200, y1: galvo.y, x2: galvo.x - 40, y2: galvo.y},
+                // skip over galvo body
+                {x1: galvo.x + 40, y1: galvo.y, x2: bulb.x, y2: galvo.y},
+                {x1: bulb.x, y1: galvo.y, x2: bulb.x, y2: bulb.y - 15},
+                // skip over bulb body
+                {x1: bulb.x, y1: bulb.y + 15, x2: bulb.x, y2: coil.y + coil.radius},
+                {x1: bulb.x, y1: coil.y + coil.radius, x2: coil.x + coil.width/2, y2: coil.y + coil.radius}
+            ];
+
+            // Helper to draw electrons on a segment
+            function drawOnSegment(seg, indexOffset) {
+                let dx = seg.x2 - seg.x1;
+                let dy = seg.y2 - seg.y1;
+                let len = Math.sqrt(dx*dx + dy*dy);
+                
+                for(let i=0; i < len; i += spacing) {
+                    // Calculate moving position mapped to this segment length
+                    let pos = (i + flowOffset + indexOffset * 1000) % len;
+                    if(pos < 0) pos += len; // Handle negative modulo for reverse flow
+                    
+                    let ratio = pos / len;
+                    let ex = seg.x1 + dx * ratio;
+                    let ey = seg.y1 + dy * ratio;
+
+                    simCtx.beginPath();
+                    simCtx.arc(ex, ey, 3, 0, Math.PI*2);
+                    simCtx.fill();
+                }
             }
 
-            // Right wire animation (opposite direction)
-            for(let i=0; i<4; i++) {
-                let y = 100 + ((120 - (i * 30 + offset + 120) % 120));
-                simCtx.beginPath();
-                simCtx.arc(coil.x + 60, y, 4, 0, Math.PI*2);
-                simCtx.fill();
-            }
+            pathSegments.forEach((seg, idx) => drawOnSegment(seg, idx));
+            simCtx.shadowBlur = 0; // reset
         }
 
         // --- Rendering Engine (Live Graphs) ---
@@ -527,7 +651,7 @@
             const h = graphCanvas.height;
             const midY = h / 2;
 
-            // Draw Grid Lines
+            // Draw Grid
             graphCtx.strokeStyle = '#2d3748';
             graphCtx.lineWidth = 1;
             graphCtx.beginPath();
@@ -536,14 +660,13 @@
             graphCtx.stroke();
             
             graphCtx.strokeStyle = '#4a5568';
-            graphCtx.setLineDash([5, 5]);
+            graphCtx.setLineDash([4, 4]);
             graphCtx.beginPath();
             graphCtx.moveTo(0, midY - 75); graphCtx.lineTo(w, midY - 75);
             graphCtx.moveTo(0, midY + 75); graphCtx.lineTo(w, midY + 75);
             graphCtx.stroke();
             graphCtx.setLineDash([]);
 
-            // Draw Data Lines
             const drawDataLine = (dataKey, color, scaleY) => {
                 graphCtx.beginPath();
                 graphCtx.strokeStyle = color;
@@ -561,9 +684,8 @@
                 graphCtx.stroke();
             };
 
-            // Scale factors for visual representation
-            drawDataLine('flux', '#38b2ac', 80); // Teal: Flux
-            drawDataLine('emf', '#e53e3e', 40);  // Red: EMF
+            drawDataLine('flux', 'var(--graph-flux)', 80); 
+            drawDataLine('emf', 'var(--graph-emf)', 40);  
         }
 
         // --- Main Game Loop ---
@@ -571,9 +693,10 @@
             simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
             
             updatePhysics();
-            
             drawMagneticField();
+            drawCircuit();
             drawCoil(); 
+            drawBulb();
             drawGalvanometer();
             drawElectrons();
             
@@ -582,7 +705,6 @@
             requestAnimationFrame(animate);
         }
 
-        // Start application
         animate();
     </script>
 </body>
