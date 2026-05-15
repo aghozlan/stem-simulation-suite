@@ -11,7 +11,6 @@
             --ui-border: rgba(255, 255, 255, 0.15);
             --text-main: #e2e8f0;
             --accent: #00d2ff;
-            --accent-glow: #3a7bd5;
         }
 
         body {
@@ -155,7 +154,7 @@
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for high-DPI displays
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -182,13 +181,14 @@
 
         // --- 2. Physics Engine State ---
         let physics = {
-            x: -10, lastX: -10, velocity: 0, flux: 0, emf: 0, smoothedEmf: 0,
+            velocity: 0, flux: 0, emf: 0, smoothedEmf: 0,
             turns: 5, strength: 1.0, isNorthRight: true,
             isAuto: false, time: 0, isDragging: false
         };
+        let lastMagnetX = -10;
         const coilRadius = 2.5;
         const dataHistory = new Array(150).fill({flux: 0, emf: 0});
-        let circuitCurve = null; // Holds the 3D path for electrons
+        let circuitCurve = null; 
 
         // --- 3. Object Creation ---
 
@@ -198,23 +198,36 @@
             canvas.width = 256; canvas.height = 256;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = bgColor; ctx.fillRect(0, 0, 256, 256);
-            ctx.fillStyle = 'white'; ctx.font = 'bold 120px "Segoe UI", Arial';
+            ctx.fillStyle = 'white'; ctx.font = 'bold 140px "Segoe UI", Arial';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(text, 128, 128);
             return new THREE.CanvasTexture(canvas);
         }
 
+        // Two-piece True Dipole Magnet Mesh
+        const magnetGroup = new THREE.Group();
+        magnetGroup.position.x = -10;
+        scene.add(magnetGroup);
+
+        const halfGeo = new THREE.BoxGeometry(2.5, 1.8, 1.8); // 5 total width
+        
         const texN = createLabelTexture('N', '#ff0055');
         const texS = createLabelTexture('S', '#00d2ff');
 
-        const magnetGeo = new THREE.BoxGeometry(5, 1.8, 1.8);
-        const matN = new THREE.MeshStandardMaterial({ map: texN, roughness: 0.3, metalness: 0.4 });
-        const matS = new THREE.MeshStandardMaterial({ map: texS, roughness: 0.3, metalness: 0.4 });
         const matBlankN = new THREE.MeshStandardMaterial({ color: '#ff0055', roughness: 0.3, metalness: 0.4 });
         const matBlankS = new THREE.MeshStandardMaterial({ color: '#00d2ff', roughness: 0.3, metalness: 0.4 });
-        
-        const magnet = new THREE.Mesh(magnetGeo, [matBlankN, matBlankS, matBlankN, matBlankS, matN, matBlankN]);
-        scene.add(magnet);
+        const matLabelN = new THREE.MeshStandardMaterial({ map: texN, roughness: 0.3, metalness: 0.4 });
+        const matLabelS = new THREE.MeshStandardMaterial({ map: texS, roughness: 0.3, metalness: 0.4 });
+
+        // Build the two halves (Faces: right, left, top, bottom, front, back)
+        const meshN = new THREE.Mesh(halfGeo, [matBlankN, matBlankN, matBlankN, matBlankN, matLabelN, matBlankN]);
+        meshN.position.x = 1.25; 
+        magnetGroup.add(meshN);
+
+        const meshS = new THREE.Mesh(halfGeo, [matBlankS, matBlankS, matBlankS, matBlankS, matLabelS, matBlankS]);
+        meshS.position.x = -1.25;
+        magnetGroup.add(meshS);
+
 
         // Circuit Geometry Group
         const circuitGroup = new THREE.Group();
@@ -261,9 +274,8 @@
         bulbGroup.add(bulbLight);
         scene.add(bulbGroup);
 
-        // Dynamic Circuit Builder (Helix + Wires)
+        // Dynamic Circuit Builder (Safe Wire Routing)
         function buildCircuit() {
-            // Clear old circuit geometry
             while(circuitGroup.children.length > 0) {
                 circuitGroup.children[0].geometry.dispose();
                 circuitGroup.remove(circuitGroup.children[0]);
@@ -274,32 +286,33 @@
             const length = turns * 1.2; 
             const startX = -length / 2;
 
-            // 1. Path from Bulb to Left side of coil
+            // 1. Safe path from Bulb to Left side of coil
             points.push(new THREE.Vector3(bulbPos.x - 0.6, bulbPos.y - 1.5, bulbPos.z)); 
-            points.push(new THREE.Vector3(startX - 1, bulbPos.y - 1.5, bulbPos.z)); 
-            points.push(new THREE.Vector3(startX - 1, 0, 0)); 
+            points.push(new THREE.Vector3(startX - 2, bulbPos.y - 1.5, bulbPos.z)); 
+            points.push(new THREE.Vector3(startX - 2, bulbPos.y - 1.5, -coilRadius)); // Push wire to the back wall
+            points.push(new THREE.Vector3(startX - 2, 0, -coilRadius)); // Up to the helix height
+            points.push(new THREE.Vector3(startX, 0, -coilRadius)); // Feed perfectly into bottom of loop
             
             // 2. The Continuous Solenoid Helix
             const helixResolution = turns * 40;
-            for (let i = 0; i <= helixResolution; i++) {
+            for (let i = 1; i <= helixResolution; i++) { // start at 1 to prevent overlapping the entrance point
                 const t = i / helixResolution;
                 const angle = t * turns * Math.PI * 2;
                 const x = startX + (t * length);
-                // Rotate helix so wire feeds cleanly from bottom (-y)
+                // Offset by -PI/2 so it starts precisely at the bottom edge (z = -R)
                 const y = Math.cos(angle - Math.PI/2) * coilRadius;
                 const z = Math.sin(angle - Math.PI/2) * coilRadius;
                 points.push(new THREE.Vector3(x, y, z));
             }
 
-            // 3. Path from Right side of coil back to Bulb
-            points.push(new THREE.Vector3(startX + length + 1, 0, 0));
-            points.push(new THREE.Vector3(startX + length + 1, bulbPos.y - 1.5, bulbPos.z));
+            // 3. Safe path from Right side of coil back to Bulb
+            points.push(new THREE.Vector3(startX + length + 2, 0, -coilRadius));
+            points.push(new THREE.Vector3(startX + length + 2, bulbPos.y - 1.5, -coilRadius));
+            points.push(new THREE.Vector3(startX + length + 2, bulbPos.y - 1.5, bulbPos.z));
             points.push(new THREE.Vector3(bulbPos.x + 0.6, bulbPos.y - 1.5, bulbPos.z));
 
-            // Create Smooth Curve
             circuitCurve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.5);
 
-            // Sweep a 3D tube along the entire path
             const tubeGeo = new THREE.TubeGeometry(circuitCurve, 200, 0.15, 12, true);
             const wireMesh = new THREE.Mesh(tubeGeo, copperMat);
             circuitGroup.add(wireMesh);
@@ -312,12 +325,13 @@
         const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
         window.addEventListener('pointerdown', (event) => {
-            if(physics.isAuto || event.button !== 0) return; // Only left click
+            if(physics.isAuto || event.button !== 0) return; 
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             
             raycaster.setFromCamera(mouse, camera);
-            if (raycaster.intersectObject(magnet).length > 0) {
+            // intersectObject must be true to check children of the magnetGroup
+            if (raycaster.intersectObject(magnetGroup, true).length > 0) {
                 physics.isDragging = true;
                 controls.enabled = false;
             }
@@ -331,7 +345,7 @@
             raycaster.setFromCamera(mouse, camera);
             const target = new THREE.Vector3();
             raycaster.ray.intersectPlane(dragPlane, target);
-            if (target) magnet.position.x = Math.max(-18, Math.min(18, target.x));
+            if (target) magnetGroup.position.x = Math.max(-18, Math.min(18, target.x));
         });
 
         window.addEventListener('pointerup', () => {
@@ -359,16 +373,16 @@
 
         document.getElementById('btnFlip').addEventListener('click', () => {
             physics.isNorthRight = !physics.isNorthRight;
-            magnet.material = physics.isNorthRight ? 
-                [matBlankN, matBlankS, matBlankN, matBlankS, matN, matBlankN] : 
-                [matBlankS, matBlankN, matBlankS, matBlankN, matS, matBlankS];
+            // Physically swap the positions of the two blocks
+            meshN.position.x = physics.isNorthRight ? 1.25 : -1.25;
+            meshS.position.x = physics.isNorthRight ? -1.25 : 1.25;
         });
 
         const btnAuto = document.getElementById('btnAuto');
         btnAuto.addEventListener('click', () => {
             physics.isAuto = !physics.isAuto;
             btnAuto.classList.toggle('active');
-            if(physics.isAuto) physics.time = Math.asin(magnet.position.x / 10) || 0;
+            if(physics.isAuto) physics.time = Math.asin(magnetGroup.position.x / 10) || 0;
         });
 
         // --- 5. Math & Physics Update ---
@@ -382,22 +396,20 @@
 
             if (physics.isAuto) {
                 physics.time += 2.5 * dt;
-                magnet.position.x = 10 * Math.sin(physics.time);
+                magnetGroup.position.x = 10 * Math.sin(physics.time);
             }
 
-            physics.velocity = (magnet.position.x - physics.lastX) / dt;
-            physics.lastX = magnet.position.x;
+            physics.velocity = (magnetGroup.position.x - lastMagnetX) / dt;
+            lastMagnetX = magnetGroup.position.x;
             if(!physics.isAuto && !physics.isDragging) physics.velocity *= 0.85;
 
-            // Dipole approximation: B ~ 1 / (x^2 + R^2)^1.5
-            const x = magnet.position.x;
+            const x = magnetGroup.position.x;
             const R2 = coilRadius * coilRadius;
             const distTerm = Math.pow(x*x + R2, 1.5);
             
             let currentFlux = (R2 / distTerm) * physics.strength * 8;
             if (!physics.isNorthRight) currentFlux *= -1;
 
-            // Derivative for EMF calculation
             const dFlux_dx = (-3 * x * R2) / Math.pow(x*x + R2, 2.5);
             let rawEmf = -physics.turns * (dFlux_dx * physics.strength) * physics.velocity * 5;
             if (!physics.isNorthRight) rawEmf *= -1;
@@ -406,24 +418,19 @@
             physics.emf = rawEmf;
             physics.smoothedEmf += (physics.emf - physics.smoothedEmf) * 0.2;
 
-            // Visual Updates based on Physics
             const brightness = Math.min(1, Math.abs(physics.smoothedEmf) / 12);
             glassMat.emissiveIntensity = brightness * 2.5;
             bulbLight.intensity = brightness * 30;
 
-            // Animate Current (Electrons)
             if(circuitCurve) {
-                // Determine direction based on Lenz's Law (polarity of EMF)
                 const flowSpeed = physics.smoothedEmf * 0.05 * dt; 
                 electrons.forEach(el => {
                     el.progress += flowSpeed;
                     if(el.progress > 1) el.progress -= 1;
                     if(el.progress < 0) el.progress += 1;
                     
-                    // Map progress to 3D curve
                     const pos = circuitCurve.getPointAt(el.progress);
                     el.mesh.position.copy(pos);
-                    // Dim electrons when there is no current
                     el.mesh.scale.setScalar(brightness > 0.02 ? 1 : 0);
                 });
             }
