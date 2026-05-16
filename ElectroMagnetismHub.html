@@ -122,6 +122,14 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
+        // --- Safe MathJax Wrapper ---
+        // Prevents the 3D engine from crashing if the external MathJax library loads slowly.
+        function safeMathRender() {
+            if (typeof window.MathJax !== 'undefined' && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise().catch(err => console.warn("MathJax formatting delayed.", err));
+            }
+        }
+
         // --- 1. Core Scene Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
@@ -162,7 +170,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Current active simulation group
         let activeGroup = new THREE.Group();
         scene.add(activeGroup);
         let currentAnimation = null; 
@@ -176,22 +183,18 @@
         function createHoloHand() {
             const handGroup = new THREE.Group();
             
-            // Palm
             const palm = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x444444, transparent: true, opacity: 0.5}));
             handGroup.add(palm);
 
-            // Thumb (Current/Force) - Up
             const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0xffea00}));
             thumb.position.set(0, 1.25, 0);
             handGroup.add(thumb);
 
-            // Index Finger (B-Field) - Forward
             const indexF = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
             indexF.rotation.x = Math.PI/2;
             indexF.position.set(0, 0.5, 0.75);
             handGroup.add(indexF);
 
-            // Middle Finger (Force/Current) - Right
             const middleF = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0xff0055}));
             middleF.rotation.z = -Math.PI/2;
             middleF.position.set(0.75, 0.5, 0);
@@ -221,9 +224,8 @@
                         <input type="range" id="lapB" min="-1" max="1" value="1" step="2">
                     </div>
                 `;
-                MathJax.typesetPromise();
+                safeMathRender();
 
-                // Setup 3D Scene
                 const rails = new THREE.Group();
                 const rail1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper);
                 rail1.rotation.z = Math.PI/2; rail1.position.z = 3;
@@ -232,7 +234,6 @@
                 rails.add(rail1, rail2);
                 activeGroup.add(rails);
 
-                // Horseshoe Magnet (Simplified as two poles)
                 const magnet = new THREE.Group();
                 const poleN = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 4), matN);
                 poleN.position.y = -2;
@@ -241,15 +242,13 @@
                 magnet.add(poleN, poleS);
                 activeGroup.add(magnet);
 
-                // Rolling Rod
                 const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 7), new THREE.MeshStandardMaterial({color: 0xd4af37, metalness: 1}));
                 rod.rotation.x = Math.PI/2;
                 rod.position.set(0, 0.3, 0);
                 activeGroup.add(rod);
 
-                // Vectors & Hand
                 const vGroup = new THREE.Group();
-                rod.add(vGroup); // Attach to rod
+                rod.add(vGroup); 
 
                 const vecI = createArrow(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 4, 0xffea00);
                 const vecB = createArrow(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 4, 0x00d2ff);
@@ -260,7 +259,6 @@
                 hand.position.set(0, 2, 0);
                 vGroup.add(hand);
 
-                // Logic
                 let I_dir = 1; let B_dir = 1; let rodVel = 0;
                 
                 document.getElementById('lapI').addEventListener('input', (e) => {
@@ -275,29 +273,25 @@
                 });
 
                 currentAnimation = () => {
-                    // Update Vectors
                     vecI.setDirection(new THREE.Vector3(0,0,-I_dir));
                     vecB.setDirection(new THREE.Vector3(0,B_dir,0));
-                    const F_dir = -I_dir * B_dir; // Cross product logic
+                    const F_dir = -I_dir * B_dir; 
                     vecF.setDirection(new THREE.Vector3(F_dir,0,0));
 
-                    // Orient Holographic Hand
-                    hand.rotation.set(0,0,0); // reset
-                    if(B_dir < 0) hand.rotation.x = Math.PI; // index finger down
+                    hand.rotation.set(0,0,0); 
+                    if(B_dir < 0) hand.rotation.x = Math.PI; 
                     if(I_dir < 0) {
-                        hand.rotation.y = Math.PI; // flip thumb direction
-                        if(B_dir < 0) hand.rotation.z = Math.PI; // adjust to keep force right
+                        hand.rotation.y = Math.PI; 
+                        if(B_dir < 0) hand.rotation.z = Math.PI; 
                     }
 
-                    // Move rod based on force inside magnetic field area (x between -2 and 2)
                     if(rod.position.x > -2.5 && rod.position.x < 2.5) {
                         rodVel += F_dir * 0.01;
                     }
-                    rodVel *= 0.95; // friction
+                    rodVel *= 0.95; 
                     rod.position.x += rodVel;
-                    rod.rotation.z -= rodVel / 0.3; // rolling
+                    rod.rotation.z -= rodVel / 0.3; 
 
-                    // Reset if it falls off
                     if(rod.position.x > 10 || rod.position.x < -10) { rod.position.x = 0; rodVel = 0; }
                 };
             }
@@ -317,21 +311,18 @@
                         <input type="range" id="merI" min="-90" max="90" value="60">
                     </div>
                 `;
-                MathJax.typesetPromise();
+                safeMathRender();
 
-                // Earth Reference Plane
                 const plane = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), new THREE.MeshBasicMaterial({color: 0x223344, wireframe: true}));
                 plane.rotation.x = -Math.PI/2;
                 activeGroup.add(plane);
 
-                // Compass Needle (Dip Needle)
                 const needle = new THREE.Group();
                 const nHalf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 4, 8), matN); nHalf.position.y = 2;
                 const sHalf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 4, 8), matS); sHalf.position.y = -2; sHalf.rotation.x = Math.PI;
                 needle.add(nHalf, sHalf);
                 activeGroup.add(needle);
 
-                // Vectors
                 const vecBh = createArrow(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 5, 0xffea00);
                 const vecBv = createArrow(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 5, 0xffea00);
                 activeGroup.add(vecBh, vecBv);
@@ -344,10 +335,8 @@
 
                 currentAnimation = () => {
                     const rad = THREE.MathUtils.degToRad(dipAngle);
-                    // Rotate needle in the Y-Z plane (Meridian)
                     needle.rotation.x = rad - Math.PI/2; 
                     
-                    // Update vector lengths based on trig
                     const totalB = 5;
                     const Bh_len = Math.abs(totalB * Math.cos(rad));
                     const Bv_len = Math.abs(totalB * Math.sin(rad));
@@ -372,12 +361,11 @@
                         <input type="range" id="curI" min="-1" max="1" value="1" step="2">
                     </div>
                 `;
-                MathJax.typesetPromise();
+                safeMathRender();
 
                 const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper);
                 activeGroup.add(wire);
 
-                // Concentric Field Lines
                 const fieldGroup = new THREE.Group();
                 activeGroup.add(fieldGroup);
 
@@ -386,7 +374,6 @@
                     ring.rotation.x = Math.PI/2;
                     fieldGroup.add(ring);
                     
-                    // Add directional arrows on the rings
                     const arr1 = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,r), 1, 0x00d2ff);
                     const arr2 = createArrow(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-r), 1, 0x00d2ff);
                     fieldGroup.add(arr1, arr2);
@@ -404,14 +391,12 @@
 
                 currentAnimation = () => {
                     const rotSpeed = 0.02 * I_dir;
-                    fieldGroup.rotation.y += rotSpeed; // Spin the field rings
+                    fieldGroup.rotation.y += rotSpeed; 
                     
-                    // Right hand rule for straight wire (Thumb = I, Fingers curl = B)
                     hand.rotation.set(0, 0, 0);
                     if(I_dir < 0) {
-                        hand.rotation.z = Math.PI; // point thumb down
+                        hand.rotation.z = Math.PI; 
                     }
-                    // Rotate hand around the wire
                     const time = Date.now() * 0.001 * I_dir;
                     hand.position.x = Math.cos(time) * 4;
                     hand.position.z = Math.sin(-time) * 4;
@@ -428,7 +413,7 @@
                     <div class="formula-box">$$ \\vec{B} \\text{ lines flow N to S} $$</div>
                     <p style="font-size: 0.85rem; color: #94a3b8;">Compass needles align tangent to the magnetic field lines.</p>
                 `;
-                MathJax.typesetPromise();
+                safeMathRender();
 
                 const magnet = new THREE.Group();
                 const poleN = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1), matN); poleN.position.x = 1.5;
@@ -436,13 +421,12 @@
                 magnet.add(poleN, poleS);
                 activeGroup.add(magnet);
 
-                // Compass Grid
                 const compasses = [];
                 const cGeo = new THREE.ConeGeometry(0.2, 1, 4);
                 
                 for(let x=-8; x<=8; x+=2) {
                     for(let z=-8; z<=8; z+=2) {
-                        if(Math.abs(x) < 4 && Math.abs(z) < 2) continue; // Skip inside magnet
+                        if(Math.abs(x) < 4 && Math.abs(z) < 2) continue; 
                         const comp = new THREE.Group();
                         const cN = new THREE.Mesh(cGeo, matN); cN.position.z = 0.5; cN.rotation.x = Math.PI/2;
                         const cS = new THREE.Mesh(cGeo, matS); cS.position.z = -0.5; cS.rotation.x = -Math.PI/2;
@@ -454,25 +438,21 @@
                 }
 
                 currentAnimation = () => {
-                    // Dipole field calculation for each compass
                     compasses.forEach(c => {
                         const px = c.position.x; const pz = c.position.z;
-                        // Approximate field from N pole
                         const rN = new THREE.Vector3(px - 1.5, 0, pz);
                         const distN = rN.lengthSq();
                         const BN = rN.normalize().multiplyScalar(1 / (distN + 0.1));
                         
-                        // Approximate field from S pole
                         const rS = new THREE.Vector3(px + 1.5, 0, pz);
                         const distS = rS.lengthSq();
                         const BS = rS.normalize().multiplyScalar(-1 / (distS + 0.1));
 
                         const BTotal = BN.add(BS);
-                        // Point compass in direction of BTotal
                         const angle = Math.atan2(BTotal.x, BTotal.z);
                         c.rotation.y = angle;
                     });
-                    magnet.rotation.y += 0.005; // slowly rotate magnet to show dynamic field
+                    magnet.rotation.y += 0.005; 
                 };
             }
         };
@@ -486,17 +466,14 @@
         };
 
         function switchModule(targetId) {
-            // Clear current scene
             scene.remove(activeGroup);
             activeGroup = new THREE.Group();
             scene.add(activeGroup);
             currentAnimation = null;
 
-            // Reset Camera
             camera.position.set(15, 10, 20);
             controls.target.set(0,0,0);
 
-            // Init new
             modules[targetId].init();
         }
 
