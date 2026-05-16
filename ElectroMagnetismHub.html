@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ahmad Ghozlan, M.S.">
+    <title>Electromagnetism Master Lab</title>
+    <style>
+        :root {
+            --ui-bg: rgba(10, 15, 25, 0.85);
+            --ui-border: rgba(0, 210, 255, 0.3);
+            --text-main: #f8fafc;
+            --accent: #00d2ff;
+            --force: #ff0055;
+            --b-field: #00d2ff;
+            --current: #ffea00;
+        }
+
+        body {
+            margin: 0; overflow: hidden;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: #030508; color: var(--text-main);
+            touch-action: none;
+        }
+
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* HUD Toggle Button */
+        #btnToggleUI {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(10, 15, 25, 0.6); backdrop-filter: blur(8px);
+            border: 1px solid var(--accent); color: var(--accent);
+            padding: 10px 15px; border-radius: 8px; font-weight: bold;
+            cursor: pointer; z-index: 30; transition: all 0.3s;
+        }
+        #btnToggleUI:hover { background: var(--accent); color: #000; }
+
+        /* Main Dashboard */
+        #dashboard {
+            position: absolute; top: 20px; left: 20px; width: 380px;
+            background: var(--ui-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--ui-border); border-radius: 12px;
+            padding: 20px; z-index: 20; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            max-height: 90vh; overflow-y: auto;
+        }
+        #dashboard.hidden { opacity: 0; transform: translateX(-400px); pointer-events: none; }
+
+        /* Module Navigation Tabs */
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn {
+            flex: 1 1 45%; padding: 8px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1); color: #94a3b8;
+            border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+        }
+        .tab-btn.active { background: rgba(0, 210, 255, 0.2); border-color: var(--accent); color: #fff; }
+
+        h2 { margin: 0 0 10px 0; font-size: 1.3rem; color: #fff; }
+        .formula-box {
+            background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;
+            margin-bottom: 15px; border-left: 3px solid var(--accent);
+            font-size: 1.1rem; text-align: center; overflow-x: auto;
+        }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; color: #cbd5e1; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        /* Vectors Legend */
+        .legend { display: flex; gap: 15px; font-size: 0.8rem; margin-top: 15px; flex-wrap: wrap;}
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        #instructions {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            padding: 10px 20px; border-radius: 20px; font-size: 0.85rem; color: #94a3b8;
+            z-index: 10; pointer-events: none; display: flex; gap: 20px; white-space: nowrap;
+        }
+        .key { color: var(--accent); font-weight: bold; }
+
+        @media (max-width: 768px) {
+            #dashboard { width: calc(100vw - 40px); top: 70px; }
+            #btnToggleUI { top: 15px; right: 15px; }
+            #instructions { bottom: 15px; font-size: 0.75rem; flex-direction: column; gap: 5px; text-align: center; }
+        }
+    </style>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <button id="btnToggleUI">⚙️ Menu</button>
+
+    <div id="dashboard">
+        <div class="tabs">
+            <button class="tab-btn active" data-target="laplace">Laplace Force</button>
+            <button class="tab-btn" data-target="wire">Current Fields</button>
+            <button class="tab-btn" data-target="meridian">Meridian</button>
+            <button class="tab-btn" data-target="magnet">Bar Magnet</button>
+        </div>
+
+        <div id="ui-content">
+            </div>
+
+        <div class="legend">
+            <span><div class="dot" style="background: var(--current)"></div> Current (I) / Thumb</span>
+            <span><div class="dot" style="background: var(--b-field)"></div> B-Field / Index</span>
+            <span><div class="dot" style="background: var(--force)"></div> Force (F) / Middle</span>
+        </div>
+    </div>
+
+    <div id="instructions">
+        <span><span class="key">Left Click</span> Orbit Space</span>
+        <span><span class="key">Right Click</span> Pan</span>
+        <span><span class="key">Scroll</span> Zoom</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- 1. Core Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030508, 0.01);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 15, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0x222222));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // --- 2. Global State & UI Management ---
+        const dashboard = document.getElementById('dashboard');
+        const btnToggleUI = document.getElementById('btnToggleUI');
+        const uiContent = document.getElementById('ui-content');
+        
+        btnToggleUI.addEventListener('click', () => dashboard.classList.toggle('hidden'));
+        window.addEventListener('pointerdown', (e) => {
+            if (!dashboard.contains(e.target) && e.target !== btnToggleUI && window.innerWidth <= 768) {
+                dashboard.classList.add('hidden');
+            }
+        });
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Current active simulation group
+        let activeGroup = new THREE.Group();
+        scene.add(activeGroup);
+        let currentAnimation = null; 
+
+        // Shared Materials
+        const matCopper = new THREE.MeshStandardMaterial({color: 0xc86a3a, metalness: 0.9, roughness: 0.2});
+        const matN = new THREE.MeshStandardMaterial({color: 0xff0055, metalness: 0.3, roughness: 0.4});
+        const matS = new THREE.MeshStandardMaterial({color: 0x00d2ff, metalness: 0.3, roughness: 0.4});
+        
+        // --- 3. Helper: Holographic Right Hand Rule ---
+        function createHoloHand() {
+            const handGroup = new THREE.Group();
+            
+            // Palm
+            const palm = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x444444, transparent: true, opacity: 0.5}));
+            handGroup.add(palm);
+
+            // Thumb (Current/Force) - Up
+            const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0xffea00}));
+            thumb.position.set(0, 1.25, 0);
+            handGroup.add(thumb);
+
+            // Index Finger (B-Field) - Forward
+            const indexF = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
+            indexF.rotation.x = Math.PI/2;
+            indexF.position.set(0, 0.5, 0.75);
+            handGroup.add(indexF);
+
+            // Middle Finger (Force/Current) - Right
+            const middleF = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5), new THREE.MeshBasicMaterial({color: 0xff0055}));
+            middleF.rotation.z = -Math.PI/2;
+            middleF.position.set(0.75, 0.5, 0);
+            handGroup.add(middleF);
+
+            return handGroup;
+        }
+
+        function createArrow(dir, origin, length, hex) {
+            return new THREE.ArrowHelper(dir, origin, length, hex, 0.2 * length, 0.1 * length);
+        }
+
+        // --- 4. Simulation Modules ---
+
+        // MODULE A: Laplace Force (Railgun)
+        const sysLaplace = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Laplace Force</h2>
+                    <div class="formula-box">$$ \\vec{F} = I \\vec{\\ell} \\times \\vec{B} $$</div>
+                    <div class="control-group">
+                        <label>Current Direction (I): <span id="lapIVal">+</span></label>
+                        <input type="range" id="lapI" min="-1" max="1" value="1" step="2">
+                    </div>
+                    <div class="control-group">
+                        <label>Magnetic Field (B): <span id="lapBVal">Up (N-S)</span></label>
+                        <input type="range" id="lapB" min="-1" max="1" value="1" step="2">
+                    </div>
+                `;
+                MathJax.typesetPromise();
+
+                // Setup 3D Scene
+                const rails = new THREE.Group();
+                const rail1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper);
+                rail1.rotation.z = Math.PI/2; rail1.position.z = 3;
+                const rail2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper);
+                rail2.rotation.z = Math.PI/2; rail2.position.z = -3;
+                rails.add(rail1, rail2);
+                activeGroup.add(rails);
+
+                // Horseshoe Magnet (Simplified as two poles)
+                const magnet = new THREE.Group();
+                const poleN = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 4), matN);
+                poleN.position.y = -2;
+                const poleS = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 4), matS);
+                poleS.position.y = 2;
+                magnet.add(poleN, poleS);
+                activeGroup.add(magnet);
+
+                // Rolling Rod
+                const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 7), new THREE.MeshStandardMaterial({color: 0xd4af37, metalness: 1}));
+                rod.rotation.x = Math.PI/2;
+                rod.position.set(0, 0.3, 0);
+                activeGroup.add(rod);
+
+                // Vectors & Hand
+                const vGroup = new THREE.Group();
+                rod.add(vGroup); // Attach to rod
+
+                const vecI = createArrow(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 4, 0xffea00);
+                const vecB = createArrow(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 4, 0x00d2ff);
+                const vecF = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 4, 0xff0055);
+                vGroup.add(vecI, vecB, vecF);
+
+                const hand = createHoloHand();
+                hand.position.set(0, 2, 0);
+                vGroup.add(hand);
+
+                // Logic
+                let I_dir = 1; let B_dir = 1; let rodVel = 0;
+                
+                document.getElementById('lapI').addEventListener('input', (e) => {
+                    I_dir = parseInt(e.target.value);
+                    document.getElementById('lapIVal').textContent = I_dir > 0 ? "+" : "-";
+                });
+                document.getElementById('lapB').addEventListener('input', (e) => {
+                    B_dir = parseInt(e.target.value);
+                    document.getElementById('lapBVal').textContent = B_dir > 0 ? "Up" : "Down";
+                    poleN.position.y = B_dir > 0 ? -2 : 2;
+                    poleS.position.y = B_dir > 0 ? 2 : -2;
+                });
+
+                currentAnimation = () => {
+                    // Update Vectors
+                    vecI.setDirection(new THREE.Vector3(0,0,-I_dir));
+                    vecB.setDirection(new THREE.Vector3(0,B_dir,0));
+                    const F_dir = -I_dir * B_dir; // Cross product logic
+                    vecF.setDirection(new THREE.Vector3(F_dir,0,0));
+
+                    // Orient Holographic Hand
+                    hand.rotation.set(0,0,0); // reset
+                    if(B_dir < 0) hand.rotation.x = Math.PI; // index finger down
+                    if(I_dir < 0) {
+                        hand.rotation.y = Math.PI; // flip thumb direction
+                        if(B_dir < 0) hand.rotation.z = Math.PI; // adjust to keep force right
+                    }
+
+                    // Move rod based on force inside magnetic field area (x between -2 and 2)
+                    if(rod.position.x > -2.5 && rod.position.x < 2.5) {
+                        rodVel += F_dir * 0.01;
+                    }
+                    rodVel *= 0.95; // friction
+                    rod.position.x += rodVel;
+                    rod.rotation.z -= rodVel / 0.3; // rolling
+
+                    // Reset if it falls off
+                    if(rod.position.x > 10 || rod.position.x < -10) { rod.position.x = 0; rodVel = 0; }
+                };
+            }
+        };
+
+        // MODULE B: Magnetic Meridian
+        const sysMeridian = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Magnetic Meridian</h2>
+                    <div class="formula-box">
+                        $$ B_h = B \\cos(I) $$<br>
+                        $$ B_v = B \\sin(I) $$
+                    </div>
+                    <div class="control-group">
+                        <label>Inclination (Dip Angle I): <span id="merIVal">60°</span></label>
+                        <input type="range" id="merI" min="-90" max="90" value="60">
+                    </div>
+                `;
+                MathJax.typesetPromise();
+
+                // Earth Reference Plane
+                const plane = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), new THREE.MeshBasicMaterial({color: 0x223344, wireframe: true}));
+                plane.rotation.x = -Math.PI/2;
+                activeGroup.add(plane);
+
+                // Compass Needle (Dip Needle)
+                const needle = new THREE.Group();
+                const nHalf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 4, 8), matN); nHalf.position.y = 2;
+                const sHalf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 4, 8), matS); sHalf.position.y = -2; sHalf.rotation.x = Math.PI;
+                needle.add(nHalf, sHalf);
+                activeGroup.add(needle);
+
+                // Vectors
+                const vecBh = createArrow(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 5, 0xffea00);
+                const vecBv = createArrow(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 5, 0xffea00);
+                activeGroup.add(vecBh, vecBv);
+
+                let dipAngle = 60;
+                document.getElementById('merI').addEventListener('input', (e) => {
+                    dipAngle = parseInt(e.target.value);
+                    document.getElementById('merIVal').textContent = dipAngle + '°';
+                });
+
+                currentAnimation = () => {
+                    const rad = THREE.MathUtils.degToRad(dipAngle);
+                    // Rotate needle in the Y-Z plane (Meridian)
+                    needle.rotation.x = rad - Math.PI/2; 
+                    
+                    // Update vector lengths based on trig
+                    const totalB = 5;
+                    const Bh_len = Math.abs(totalB * Math.cos(rad));
+                    const Bv_len = Math.abs(totalB * Math.sin(rad));
+                    
+                    if(Bh_len > 0.1) vecBh.setLength(Bh_len, 0.5, 0.2);
+                    if(Bv_len > 0.1) {
+                        vecBv.setDirection(new THREE.Vector3(0, dipAngle > 0 ? -1 : 1, 0));
+                        vecBv.setLength(Bv_len, 0.5, 0.2);
+                    }
+                };
+            }
+        };
+
+        // MODULE C: Current Fields (Straight Wire)
+        const sysCurrent = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Magnetic Field of a Wire</h2>
+                    <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
+                    <div class="control-group">
+                        <label>Current Direction: <span id="curIVal">Up</span></label>
+                        <input type="range" id="curI" min="-1" max="1" value="1" step="2">
+                    </div>
+                `;
+                MathJax.typesetPromise();
+
+                const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper);
+                activeGroup.add(wire);
+
+                // Concentric Field Lines
+                const fieldGroup = new THREE.Group();
+                activeGroup.add(fieldGroup);
+
+                for(let r=2; r<=6; r+=2) {
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 32), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
+                    ring.rotation.x = Math.PI/2;
+                    fieldGroup.add(ring);
+                    
+                    // Add directional arrows on the rings
+                    const arr1 = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,r), 1, 0x00d2ff);
+                    const arr2 = createArrow(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-r), 1, 0x00d2ff);
+                    fieldGroup.add(arr1, arr2);
+                }
+
+                const hand = createHoloHand();
+                hand.position.set(4, 0, 0);
+                activeGroup.add(hand);
+
+                let I_dir = 1;
+                document.getElementById('curI').addEventListener('input', (e) => {
+                    I_dir = parseInt(e.target.value);
+                    document.getElementById('curIVal').textContent = I_dir > 0 ? "Up" : "Down";
+                });
+
+                currentAnimation = () => {
+                    const rotSpeed = 0.02 * I_dir;
+                    fieldGroup.rotation.y += rotSpeed; // Spin the field rings
+                    
+                    // Right hand rule for straight wire (Thumb = I, Fingers curl = B)
+                    hand.rotation.set(0, 0, 0);
+                    if(I_dir < 0) {
+                        hand.rotation.z = Math.PI; // point thumb down
+                    }
+                    // Rotate hand around the wire
+                    const time = Date.now() * 0.001 * I_dir;
+                    hand.position.x = Math.cos(time) * 4;
+                    hand.position.z = Math.sin(-time) * 4;
+                    hand.rotation.y = -time;
+                };
+            }
+        };
+
+        // MODULE D: Bar Magnet
+        const sysMagnet = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Bar Magnet Field</h2>
+                    <div class="formula-box">$$ \\vec{B} \\text{ lines flow N to S} $$</div>
+                    <p style="font-size: 0.85rem; color: #94a3b8;">Compass needles align tangent to the magnetic field lines.</p>
+                `;
+                MathJax.typesetPromise();
+
+                const magnet = new THREE.Group();
+                const poleN = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1), matN); poleN.position.x = 1.5;
+                const poleS = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1), matS); poleS.position.x = -1.5;
+                magnet.add(poleN, poleS);
+                activeGroup.add(magnet);
+
+                // Compass Grid
+                const compasses = [];
+                const cGeo = new THREE.ConeGeometry(0.2, 1, 4);
+                
+                for(let x=-8; x<=8; x+=2) {
+                    for(let z=-8; z<=8; z+=2) {
+                        if(Math.abs(x) < 4 && Math.abs(z) < 2) continue; // Skip inside magnet
+                        const comp = new THREE.Group();
+                        const cN = new THREE.Mesh(cGeo, matN); cN.position.z = 0.5; cN.rotation.x = Math.PI/2;
+                        const cS = new THREE.Mesh(cGeo, matS); cS.position.z = -0.5; cS.rotation.x = -Math.PI/2;
+                        comp.add(cN, cS);
+                        comp.position.set(x, 0, z);
+                        activeGroup.add(comp);
+                        compasses.push(comp);
+                    }
+                }
+
+                currentAnimation = () => {
+                    // Dipole field calculation for each compass
+                    compasses.forEach(c => {
+                        const px = c.position.x; const pz = c.position.z;
+                        // Approximate field from N pole
+                        const rN = new THREE.Vector3(px - 1.5, 0, pz);
+                        const distN = rN.lengthSq();
+                        const BN = rN.normalize().multiplyScalar(1 / (distN + 0.1));
+                        
+                        // Approximate field from S pole
+                        const rS = new THREE.Vector3(px + 1.5, 0, pz);
+                        const distS = rS.lengthSq();
+                        const BS = rS.normalize().multiplyScalar(-1 / (distS + 0.1));
+
+                        const BTotal = BN.add(BS);
+                        // Point compass in direction of BTotal
+                        const angle = Math.atan2(BTotal.x, BTotal.z);
+                        c.rotation.y = angle;
+                    });
+                    magnet.rotation.y += 0.005; // slowly rotate magnet to show dynamic field
+                };
+            }
+        };
+
+        // --- 5. Navigation Logic ---
+        const modules = {
+            laplace: sysLaplace,
+            meridian: sysMeridian,
+            wire: sysCurrent,
+            magnet: sysMagnet
+        };
+
+        function switchModule(targetId) {
+            // Clear current scene
+            scene.remove(activeGroup);
+            activeGroup = new THREE.Group();
+            scene.add(activeGroup);
+            currentAnimation = null;
+
+            // Reset Camera
+            camera.position.set(15, 10, 20);
+            controls.target.set(0,0,0);
+
+            // Init new
+            modules[targetId].init();
+        }
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                switchModule(e.target.dataset.target);
+            });
+        });
+
+        // Init Default
+        switchModule('laplace');
+
+        // --- 6. Main Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if(currentAnimation) currentAnimation();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
