@@ -5,15 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="author" content="Ahmad Ghozlan, M.S.">
     <title>3D Electromagnetic Induction Lab</title>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
 
-  gtag('config', 'G-ZLT3D41MC0');
-</script>
+        // Default state: Deny cookies until the user agrees
+        gtag('consent', 'default', {
+            'analytics_storage': 'denied',
+            'ad_storage': 'denied',
+            'ad_user_data': 'denied',
+            'ad_personalization': 'denied'
+        });
+    </script>
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-ZLT3D41MC0');
+    </script>
     <style>
         :root {
             --ui-bg: rgba(15, 20, 28, 0.85);
@@ -553,6 +562,106 @@
             renderer.render(scene, camera);
         }
         animate();
+    </script>
+    <style>
+        #consent-banner {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(15, 20, 28, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 210, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            text-align: center;
+        }
+        #consent-banner.hidden {
+            display: none;
+        }
+        #consent-banner p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .consent-btns {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-consent {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-accept {
+            background: #00d2ff;
+            color: #000;
+        }
+        .btn-accept:hover {
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        }
+        .btn-decline {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-decline:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+
+    <div id="consent-banner">
+        <p>This educational laboratory uses anonymous analytics to count visitors and improve performance. Do you accept the use of analytics cookies?</p>
+        <div class="consent-btns">
+            <button class="btn-consent btn-decline" id="btnDecline">Decline</button>
+            <button class="btn-consent btn-accept" id="btnAccept">Accept</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const banner = document.getElementById('consent-banner');
+            const btnAccept = document.getElementById('btnAccept');
+            const btnDecline = document.getElementById('btnDecline');
+
+            // Check if the user already made a choice in the past
+            const consentStatus = localStorage.getItem('analytics_consent');
+            
+            if (consentStatus === 'granted') {
+                banner.classList.add('hidden');
+                gtag('consent', 'update', { 'analytics_storage': 'granted' });
+            } else if (consentStatus === 'denied') {
+                banner.classList.add('hidden');
+                // Remains denied as set in the head
+            }
+
+            // Handle Accept
+            btnAccept.addEventListener('click', function() {
+                localStorage.setItem('analytics_consent', 'granted');
+                gtag('consent', 'update', { 'analytics_storage': 'granted' });
+                banner.classList.add('hidden');
+            });
+
+            // Handle Decline
+            btnDecline.addEventListener('click', function() {
+                localStorage.setItem('analytics_consent', 'denied');
+                banner.classList.add('hidden');
+            });
+        });
     </script>
 </body>
 </html>
