@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Magnetic Field Simulation</title>
+  <style>
+    body { margin: 0; background: #111; color: #eee; font-family: Arial, sans-serif; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 1; }
+    #formula { position: absolute; top: 10px; right: 10px; width: 320px; background: rgba(20,20,20,0.9); padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; }
+    button { margin: 5px; padding: 8px 12px; background: #333; color: #eee; border: none; cursor: pointer; border-radius: 4px; }
+    button:hover { background: #555; }
+    canvas { display: block; }
+    h3 { margin: 0 0 8px 0; color: #00ffff; }
+    .formula { color: #ffcc00; font-family: monospace; }
+    .slider { width: 100%; margin: 6px 0; }
+    label { display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <button onclick="showWire()">Long Wire</button>
+  <button onclick="showCoil()">Circular Coil</button>
+  <button onclick="showSolenoid()">Solenoid</button>
+</div>
+<div id="formula"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script>
+let scene, camera, renderer, controls;
+let currentI = 5, radiusR = 1, turnsN = 10;
+
+init();
+
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 2, 6);
+
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  animate();
+}
+
+function clearScene() {
+  while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+}
+
+function addFieldLines(radius=1, count=20) {
+  const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
+  for(let i=0;i<count;i++){
+    const angle = (i/count)*Math.PI*2;
+    const points = [];
+    for(let j=0;j<=50;j++){
+      const theta = j/50 * Math.PI*2;
+      let x = Math.cos(theta+angle)*radius;
+      let z = Math.sin(theta+angle)*radius;
+      points.push(new THREE.Vector3(x,0,z));
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    scene.add(line);
+  }
+}
+
+function addRightHandRule() {
+  const thumbGeom = new THREE.CylinderGeometry(0.05,0.05,1,16);
+  const thumbMat = new THREE.MeshBasicMaterial({color:0xff0000});
+  const thumb = new THREE.Mesh(thumbGeom, thumbMat);
+  thumb.position.set(0,0.5,0);
+  scene.add(thumb);
+
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.5,0,0),
+    new THREE.Vector3(0,0,0.5),
+    new THREE.Vector3(-0.5,0,0),
+    new THREE.Vector3(0,0,-0.5),
+    new THREE.Vector3(0.5,0,0)
+  ]);
+  const points = curve.getPoints(50);
+  const geom = new THREE.BufferGeometry().setFromPoints(points);
+  const mat = new THREE.LineBasicMaterial({color:0xffff00});
+  const line = new THREE.Line(geom, mat);
+  scene.add(line);
+}
+
+function showWire() {
+  clearScene();
+  const wireGeom = new THREE.CylinderGeometry(0.05,0.05,4,16);
+  const wireMat = new THREE.MeshBasicMaterial({color:0xffffff});
+  const wire = new THREE.Mesh(wireGeom, wireMat);
+  scene.add(wire);
+  addFieldLines(1.5, 12);
+  addRightHandRule();
+  updateFormula("wire");
+}
+
+function showCoil() {
+  clearScene();
+  const coilGeom = new THREE.TorusGeometry(radiusR,0.05,16,100);
+  const coilMat = new THREE.MeshBasicMaterial({color:0xffffff});
+  const coil = new THREE.Mesh(coilGeom, coilMat);
+  scene.add(coil);
+  const fieldGeom = new THREE.CylinderGeometry(0.02,0.02,2,16);
+  const fieldMat = new THREE.MeshBasicMaterial({color:0x00ff00});
+  const field = new THREE.Mesh(fieldGeom, fieldMat);
+  scene.add(field);
+  addRightHandRule();
+  updateFormula("coil");
+}
+
+function showSolenoid() {
+  clearScene();
+  for(let i=0;i<turnsN;i++){
+    const coilGeom = new THREE.TorusGeometry(0.5,0.05,16,50);
+    const coilMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const coil = new THREE.Mesh(coilGeom, coilMat);
+    coil.rotation.x = Math.PI/2;
+    coil.position.y = -2 + i*0.4;
+    scene.add(coil);
+  }
+  const fieldGeom = new THREE.CylinderGeometry(0.02,0.02,4,16);
+  const fieldMat = new THREE.MeshBasicMaterial({color:0x00ff00});
+  const field = new THREE.Mesh(fieldGeom, fieldMat);
+  scene.add(field);
+  addRightHandRule();
+  updateFormula("solenoid");
+}
+
+function updateFormula(type) {
+  let html = "";
+  if(type==="wire"){
+    const B = (4*Math.PI*1e-7*currentI)/(2*Math.PI*1); // r=1m
+    html = `<h3>Long Straight Wire</h3>
+      <div class="formula">B = μ₀ I / (2πr)</div>
+      <p>I = ${currentI} A, r = 1 m</p>
+      <p>B ≈ ${B.toExponential(2)} T</p>
+      <p>Right-hand rule: thumb along current, fingers curl around field lines.</p>
+      <label>Current I (A): <input type="range" min="1" max="20" value="${currentI}" class="slider" oninput="currentI=this.value;showWire()"></label>`;
+  }
+  if(type==="coil"){
+    const B = (4*Math.PI*1e-7*turnsN*currentI)/(2*radiusR);
+    html = `<h3>Circular Coil</h3>
+      <div class="formula">B = μ₀ N I / (2R)</div>
+      <p>N = ${turnsN}, I = ${currentI} A, R = ${radiusR} m</p>
+      <p>B ≈ ${B.toExponential(2)} T</p>
+      <p>Right-hand rule: fingers follow current, thumb points along axis.</p>
+      <label>Current I (A): <input type="range" min="1" max="20" value="${currentI}" class="slider" oninput="currentI=this.value;showCoil()"></label>
+      <label>Radius R (m): <input type="range" min="1" max="5" value="${radiusR}" class="slider" oninput="radiusR=this.value;showCoil()"></label>
+      <label>Turns N: <input type="range" min="1" max="50" value="${turnsN}" class="slider" oninput="turnsN=this.value;showCoil()"></label>`;
+  }
+  if(type==="solenoid"){
+    const L = 4; // approx length
+    const n = turnsN/L;
+    const B = (4*Math.PI*1e-7*n*currentI);
+    html = `<h3>Solenoid</h3>
+      <div class="formula">B = μ₀ n I</div>
+      <p>N = ${turnsN}, L ≈ ${L} m, I = ${currentI} A</p>
+      <p
