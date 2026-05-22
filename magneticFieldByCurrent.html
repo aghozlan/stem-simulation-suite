@@ -1,162 +1,614 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Magnetic Field Simulation</title>
-  <style>
-    body { margin: 0; background: #111; color: #eee; font-family: Arial, sans-serif; }
-    #ui { position: absolute; top: 10px; left: 10px; z-index: 1; }
-    #formula { position: absolute; top: 10px; right: 10px; width: 320px; background: rgba(20,20,20,0.9); padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; }
-    button { margin: 5px; padding: 8px 12px; background: #333; color: #eee; border: none; cursor: pointer; border-radius: 4px; }
-    button:hover { background: #555; }
-    canvas { display: block; }
-    h3 { margin: 0 0 8px 0; color: #00ffff; }
-    .formula { color: #ffcc00; font-family: monospace; }
-    .slider { width: 100%; margin: 6px 0; }
-    label { display: block; margin-top: 8px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ahmad Ghozlan, M.S.">
+    <title>Advanced Magnetic Fields & Laplace Force</title>
+
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('consent', 'default', {
+            'analytics_storage': 'denied',
+            'ad_storage': 'denied',
+            'ad_user_data': 'denied',
+            'ad_personalization': 'denied'
+        });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-ZLT3D41MC0');
+    </script>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        function safeMathRender() {
+            if (typeof window.MathJax !== 'undefined' && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise().catch(err => console.warn(err));
+            }
+        }
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --ui-bg: rgba(12, 18, 28, 0.9);
+            --ui-border: rgba(0, 210, 255, 0.4);
+            --text-main: #f8fafc;
+            --accent: #00d2ff;
+            --force: #ff0055;
+            --b-field: #00d2ff;
+            --current: #ffea00;
+        }
+
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #05080f; color: var(--text-main); touch-action: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* HUD Toggle Button */
+        #btnToggleUI {
+            position: absolute; top: 20px; right: 20px; background: rgba(12, 18, 28, 0.8); backdrop-filter: blur(8px);
+            border: 1px solid var(--accent); color: var(--accent); padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; z-index: 30; transition: all 0.3s;
+        }
+        #btnToggleUI:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+
+        /* Main Dashboard */
+        #dashboard {
+            position: absolute; top: 20px; left: 20px; width: 400px; background: var(--ui-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--ui-border); border-radius: 12px; padding: 25px; z-index: 20; box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); max-height: 85vh; overflow-y: auto;
+        }
+        #dashboard.hidden { opacity: 0; transform: translateX(-450px); pointer-events: none; }
+
+        /* Module Navigation Tabs */
+        .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        .tab-btn {
+            padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8;
+            border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s;
+        }
+        .tab-btn.active { background: rgba(0, 210, 255, 0.2); border-color: var(--accent); color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+        .tab-btn.full-width { grid-column: 1 / -1; background: rgba(255, 0, 85, 0.2); border-color: var(--force); color: #fff;}
+
+        h2 { margin: 0 0 10px 0; font-size: 1.4rem; color: #fff; }
+        .formula-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); font-size: 1.1rem; text-align: center; }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px; color: #cbd5e1; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; outline: none;}
+
+        .legend { display: flex; gap: 15px; font-size: 0.8rem; margin-top: 20px; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);}
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        #instructions {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            padding: 12px 25px; border-radius: 30px; font-size: 0.9rem; color: #94a3b8; z-index: 10; pointer-events: none; display: flex; gap: 20px;
+        }
+        .key { color: var(--accent); font-weight: bold; }
+
+        /* Consent Banner */
+        #consent-banner {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px;
+            background: rgba(15, 20, 28, 0.95); backdrop-filter: blur(10px); border: 1px solid var(--ui-border);
+            border-radius: 12px; padding: 20px; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 15px; text-align: center;
+        }
+        #consent-banner.hidden { display: none; }
+        .consent-btns { display: flex; justify-content: center; gap: 10px; }
+        .btn-consent { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        .btn-accept { background: #00d2ff; color: #000; }
+        .btn-decline { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    </style>
 </head>
 <body>
-<div id="ui">
-  <button onclick="showWire()">Long Wire</button>
-  <button onclick="showCoil()">Circular Coil</button>
-  <button onclick="showSolenoid()">Solenoid</button>
-</div>
-<div id="formula"></div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-<script>
-let scene, camera, renderer, controls;
-let currentI = 5, radiusR = 1, turnsN = 10;
 
-init();
+    <div id="canvas-container"></div>
+    <button id="btnToggleUI">⚙️ Dashboard</button>
 
-function init() {
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 2, 6);
+    <div id="dashboard">
+        <div class="tabs">
+            <button class="tab-btn active" data-target="resultant">1. Magnet Resultant</button>
+            <button class="tab-btn" data-target="wire">2. Straight Wire</button>
+            <button class="tab-btn" data-target="coil">3. Flat Coil</button>
+            <button class="tab-btn" data-target="solenoid">4. Solenoid</button>
+            <button class="tab-btn full-width" data-target="laplace">5. Laplace Force</button>
+        </div>
 
-  renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+        <div id="ui-content"></div>
 
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
-  animate();
-}
+        <div class="legend">
+            <span><div class="dot" style="background: var(--current)"></div> Current (I)</span>
+            <span><div class="dot" style="background: var(--b-field)"></div> B-Field (B)</span>
+            <span><div class="dot" style="background: var(--force)"></div> Force (F)</span>
+        </div>
+    </div>
 
-function clearScene() {
-  while(scene.children.length > 0){ scene.remove(scene.children[0]); }
-}
+    <div id="instructions">
+        <span><span class="key">Drag</span> Objects</span>
+        <span><span class="key">Right Click</span> Orbit</span>
+        <span><span class="key">Scroll</span> Zoom</span>
+    </div>
 
-function addFieldLines(radius=1, count=20) {
-  const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
-  for(let i=0;i<count;i++){
-    const angle = (i/count)*Math.PI*2;
-    const points = [];
-    for(let j=0;j<=50;j++){
-      const theta = j/50 * Math.PI*2;
-      let x = Math.cos(theta+angle)*radius;
-      let z = Math.sin(theta+angle)*radius;
-      points.push(new THREE.Vector3(x,0,z));
-    }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, material);
-    scene.add(line);
-  }
-}
+    <div id="consent-banner">
+        <p style="margin:0; color:#cbd5e1;">This educational laboratory uses anonymous analytics to count visitors. Do you accept the use of analytics cookies?</p>
+        <div class="consent-btns">
+            <button class="btn-consent btn-decline" id="btnDecline">Decline</button>
+            <button class="btn-consent btn-accept" id="btnAccept">Accept</button>
+        </div>
+    </div>
 
-function addRightHandRule() {
-  const thumbGeom = new THREE.CylinderGeometry(0.05,0.05,1,16);
-  const thumbMat = new THREE.MeshBasicMaterial({color:0xff0000});
-  const thumb = new THREE.Mesh(thumbGeom, thumbMat);
-  thumb.position.set(0,0.5,0);
-  scene.add(thumb);
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.5,0,0),
-    new THREE.Vector3(0,0,0.5),
-    new THREE.Vector3(-0.5,0,0),
-    new THREE.Vector3(0,0,-0.5),
-    new THREE.Vector3(0.5,0,0)
-  ]);
-  const points = curve.getPoints(50);
-  const geom = new THREE.BufferGeometry().setFromPoints(points);
-  const mat = new THREE.LineBasicMaterial({color:0xffff00});
-  const line = new THREE.Line(geom, mat);
-  scene.add(line);
-}
+    <script>
+        // --- Consent Logic ---
+        document.addEventListener("DOMContentLoaded", () => {
+            const banner = document.getElementById('consent-banner');
+            const status = localStorage.getItem('analytics_consent');
+            if (status === 'granted') { banner.classList.add('hidden'); gtag('consent', 'update', { 'analytics_storage': 'granted' }); } 
+            else if (status === 'denied') { banner.classList.add('hidden'); }
 
-function showWire() {
-  clearScene();
-  const wireGeom = new THREE.CylinderGeometry(0.05,0.05,4,16);
-  const wireMat = new THREE.MeshBasicMaterial({color:0xffffff});
-  const wire = new THREE.Mesh(wireGeom, wireMat);
-  scene.add(wire);
-  addFieldLines(1.5, 12);
-  addRightHandRule();
-  updateFormula("wire");
-}
+            document.getElementById('btnAccept').addEventListener('click', () => {
+                localStorage.setItem('analytics_consent', 'granted'); gtag('consent', 'update', { 'analytics_storage': 'granted' }); banner.classList.add('hidden');
+            });
+            document.getElementById('btnDecline').addEventListener('click', () => {
+                localStorage.setItem('analytics_consent', 'denied'); banner.classList.add('hidden');
+            });
+        });
 
-function showCoil() {
-  clearScene();
-  const coilGeom = new THREE.TorusGeometry(radiusR,0.05,16,100);
-  const coilMat = new THREE.MeshBasicMaterial({color:0xffffff});
-  const coil = new THREE.Mesh(coilGeom, coilMat);
-  scene.add(coil);
-  const fieldGeom = new THREE.CylinderGeometry(0.02,0.02,2,16);
-  const fieldMat = new THREE.MeshBasicMaterial({color:0x00ff00});
-  const field = new THREE.Mesh(fieldGeom, fieldMat);
-  scene.add(field);
-  addRightHandRule();
-  updateFormula("coil");
-}
+        // --- Core Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x05080f, 0.012);
 
-function showSolenoid() {
-  clearScene();
-  for(let i=0;i<turnsN;i++){
-    const coilGeom = new THREE.TorusGeometry(0.5,0.05,16,50);
-    const coilMat = new THREE.MeshBasicMaterial({color:0xffffff});
-    const coil = new THREE.Mesh(coilGeom, coilMat);
-    coil.rotation.x = Math.PI/2;
-    coil.position.y = -2 + i*0.4;
-    scene.add(coil);
-  }
-  const fieldGeom = new THREE.CylinderGeometry(0.02,0.02,4,16);
-  const fieldMat = new THREE.MeshBasicMaterial({color:0x00ff00});
-  const field = new THREE.Mesh(fieldGeom, fieldMat);
-  scene.add(field);
-  addRightHandRule();
-  updateFormula("solenoid");
-}
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 20);
 
-function updateFormula(type) {
-  let html = "";
-  if(type==="wire"){
-    const B = (4*Math.PI*1e-7*currentI)/(2*Math.PI*1); // r=1m
-    html = `<h3>Long Straight Wire</h3>
-      <div class="formula">B = μ₀ I / (2πr)</div>
-      <p>I = ${currentI} A, r = 1 m</p>
-      <p>B ≈ ${B.toExponential(2)} T</p>
-      <p>Right-hand rule: thumb along current, fingers curl around field lines.</p>
-      <label>Current I (A): <input type="range" min="1" max="20" value="${currentI}" class="slider" oninput="currentI=this.value;showWire()"></label>`;
-  }
-  if(type==="coil"){
-    const B = (4*Math.PI*1e-7*turnsN*currentI)/(2*radiusR);
-    html = `<h3>Circular Coil</h3>
-      <div class="formula">B = μ₀ N I / (2R)</div>
-      <p>N = ${turnsN}, I = ${currentI} A, R = ${radiusR} m</p>
-      <p>B ≈ ${B.toExponential(2)} T</p>
-      <p>Right-hand rule: fingers follow current, thumb points along axis.</p>
-      <label>Current I (A): <input type="range" min="1" max="20" value="${currentI}" class="slider" oninput="currentI=this.value;showCoil()"></label>
-      <label>Radius R (m): <input type="range" min="1" max="5" value="${radiusR}" class="slider" oninput="radiusR=this.value;showCoil()"></label>
-      <label>Turns N: <input type="range" min="1" max="50" value="${turnsN}" class="slider" oninput="turnsN=this.value;showCoil()"></label>`;
-  }
-  if(type==="solenoid"){
-    const L = 4; // approx length
-    const n = turnsN/L;
-    const B = (4*Math.PI*1e-7*n*currentI);
-    html = `<h3>Solenoid</h3>
-      <div class="formula">B = μ₀ n I</div>
-      <p>N = ${turnsN}, L ≈ ${L} m, I = ${currentI} A</p>
-      <p>n = N/L = ${n.toFixed(2)} turns/m</p>
-      <p>B ≈ ${B.toEx
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+
+        scene.add(new THREE.AmbientLight(0x333333, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const grid = new THREE.GridHelper(60, 60, 0x00d2ff, 0x112233);
+        grid.position.y = -5; grid.material.opacity = 0.15; grid.material.transparent = true;
+        scene.add(grid);
+
+        // --- Shared Materials & Tools ---
+        const matCopper = new THREE.MeshPhysicalMaterial({color: 0xc86a3a, metalness: 1, roughness: 0.2});
+        const matN = new THREE.MeshStandardMaterial({color: 0xff0055, metalness: 0.3});
+        const matS = new THREE.MeshStandardMaterial({color: 0x00d2ff, metalness: 0.3});
+        
+        function createArrow(dir, origin, length, hex) {
+            return new THREE.ArrowHelper(dir, origin, length, hex, 0.2 * length, 0.1 * length);
+        }
+
+        // --- PROCEDURAL REALISTIC HAND RIG ---
+        // Builds a posable 3D hand using geometric primitives
+        function buildRiggedHand() {
+            const hand = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({color: 0xe5c298, roughness: 0.6, metalness: 0.1}); // Human skin tone
+            
+            // Palm
+            const palm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.8, 0.4), skinMat);
+            palm.position.y = 0.9;
+            hand.add(palm);
+
+            // Wrist/Arm stub
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.6, 2), skinMat);
+            arm.position.y = -1;
+            hand.add(arm);
+
+            // Finger builder with joints for curling
+            function createFinger(length, width, xOffset, yOffset, isThumb=false) {
+                const root = new THREE.Group();
+                root.position.set(xOffset, yOffset, 0);
+                
+                const seg1 = new THREE.Mesh(new THREE.CylinderGeometry(width, width*0.9, length/2), skinMat);
+                seg1.position.y = length/4;
+                
+                const joint = new THREE.Group();
+                joint.position.y = length/2;
+                
+                const seg2 = new THREE.Mesh(new THREE.CylinderGeometry(width*0.9, width*0.7, length/2), skinMat);
+                seg2.position.y = length/4;
+                
+                // Add fingernail
+                const nail = new THREE.Mesh(new THREE.PlaneGeometry(width*0.8, width*1.2), new THREE.MeshBasicMaterial({color: 0xffeadd}));
+                nail.position.set(0, length/3, width*0.7);
+                seg2.add(nail);
+
+                joint.add(seg2);
+                seg1.add(joint);
+                root.add(seg1);
+                return { root, joint };
+            }
+
+            const thumb = createFinger(1.2, 0.25, 0.9, 0.5, true);
+            thumb.root.rotation.z = -Math.PI/3; thumb.root.rotation.x = Math.PI/6;
+            
+            const index = createFinger(1.4, 0.2, 0.55, 1.8);
+            const middle = createFinger(1.5, 0.22, 0.15, 1.8);
+            const ring = createFinger(1.4, 0.2, -0.25, 1.8);
+            const pinky = createFinger(1.1, 0.18, -0.65, 1.7);
+
+            hand.add(thumb.root, index.root, middle.root, ring.root, pinky.root);
+
+            // Rig Posing API
+            hand.setPose = (pose) => {
+                // Reset to open flat hand
+                [thumb, index, middle, ring, pinky].forEach(f => {
+                    f.root.rotation.x = 0; f.joint.rotation.x = 0; f.root.rotation.y = 0; f.root.rotation.z = 0;
+                });
+                thumb.root.rotation.z = -Math.PI/3; thumb.root.rotation.x = Math.PI/6; // base thumb
+
+                if(pose === 'curl') {
+                    // Right Hand Rule for wire/coil (Thumb straight, fingers curl)
+                    index.root.rotation.x = Math.PI/2; index.joint.rotation.x = Math.PI/2;
+                    middle.root.rotation.x = Math.PI/2; middle.joint.rotation.x = Math.PI/2;
+                    ring.root.rotation.x = Math.PI/2; ring.joint.rotation.x = Math.PI/2;
+                    pinky.root.rotation.x = Math.PI/2; pinky.joint.rotation.x = Math.PI/2;
+                } 
+                else if (pose === 'laplace') {
+                    // FBI Rule (Thumb=I, Index=B, Middle=F)
+                    index.root.rotation.x = Math.PI/2; // Index forward (B)
+                    middle.root.rotation.x = Math.PI/2; middle.root.rotation.z = -Math.PI/2; // Middle sideways (F)
+                    ring.root.rotation.x = Math.PI; // Folded away
+                    pinky.root.rotation.x = Math.PI; // Folded away
+                }
+            };
+            return hand;
+        }
+
+        const realHand = buildRiggedHand();
+
+        // --- Interaction Globals ---
+        let activeGroup = new THREE.Group();
+        scene.add(activeGroup);
+        let currentAnimation = null; 
+        const uiContent = document.getElementById('ui-content');
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let draggedObj = null;
+
+        window.addEventListener('pointerdown', (e) => {
+            if(e.button !== 0) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(activeGroup.children, true);
+            if(intersects.length > 0 && intersects[0].object.userData.draggable) {
+                draggedObj = intersects[0].object.parent || intersects[0].object; // Get the group
+                controls.enabled = false;
+            }
+        });
+        window.addEventListener('pointermove', (e) => {
+            if(!draggedObj) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const target = new THREE.Vector3();
+            raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0), 0), target);
+            if(target) { draggedObj.position.x = target.x; draggedObj.position.z = target.z; }
+        });
+        window.addEventListener('pointerup', () => { draggedObj = null; controls.enabled = true; });
+
+        // --- LAB MODULES ---
+
+        // 1. Resultant Magnetic Field
+        const sysResultant = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Resultant Field (Superposition)</h2>
+                    <div class="formula-box">$$ \\vec{B}_{net} = \\vec{B}_1 + \\vec{B}_2 $$</div>
+                    <p style="font-size: 0.85rem; color:#94a3b8;">Drag the magnets to see how their fields combine at the origin.</p>
+                `;
+                safeMathRender();
+
+                const m1 = new THREE.Group(); m1.userData.draggable = true; m1.position.set(-6, 0, 0);
+                const p1N = new THREE.Mesh(new THREE.BoxGeometry(3,1,1), matN); p1N.position.x = 1.5; p1N.userData.draggable = true;
+                const p1S = new THREE.Mesh(new THREE.BoxGeometry(3,1,1), matS); p1S.position.x = -1.5; p1S.userData.draggable = true;
+                m1.add(p1N, p1S);
+
+                const m2 = new THREE.Group(); m2.userData.draggable = true; m2.position.set(0, 0, -6); m2.rotation.y = Math.PI/2;
+                const p2N = new THREE.Mesh(new THREE.BoxGeometry(3,1,1), matN); p2N.position.x = 1.5; p2N.userData.draggable = true;
+                const p2S = new THREE.Mesh(new THREE.BoxGeometry(3,1,1), matS); p2S.position.x = -1.5; p2S.userData.draggable = true;
+                m2.add(p2N, p2S);
+
+                activeGroup.add(m1, m2);
+
+                const centerMark = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshBasicMaterial({color: 0xffffff}));
+                activeGroup.add(centerMark);
+
+                const vecB1 = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 2, 0xffaa00);
+                const vecB2 = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 2, 0xff00ff);
+                const vecBnet = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 3, 0x00d2ff);
+                activeGroup.add(vecB1, vecB2, vecBnet);
+
+                currentAnimation = () => {
+                    function getB(mGroup) {
+                        const px = mGroup.position.x; const pz = mGroup.position.z;
+                        const vN = new THREE.Vector3(-px, 0, -pz); // simplified dipole from center
+                        const dist = vN.lengthSq();
+                        if(dist < 1) return new THREE.Vector3(0,0,0);
+                        // Convert rotation to vector
+                        const dir = new THREE.Vector3(1,0,0).applyEuler(mGroup.rotation);
+                        // Approximate dipole at origin
+                        return dir.multiplyScalar(30 / Math.pow(dist, 1.5));
+                    }
+                    const b1 = getB(m1); const b2 = getB(m2);
+                    const bNet = new THREE.Vector3().addVectors(b1, b2);
+
+                    if(b1.length() > 0.1) { vecB1.setDirection(b1.clone().normalize()); vecB1.setLength(b1.length()); }
+                    if(b2.length() > 0.1) { vecB2.setDirection(b2.clone().normalize()); vecB2.setLength(b2.length()); }
+                    if(bNet.length() > 0.1) { vecBnet.setDirection(bNet.clone().normalize()); vecBnet.setLength(bNet.length(), 0.5, 0.3); }
+                };
+            }
+        };
+
+        // 2. Straight Wire
+        const sysWire = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Infinite Straight Wire</h2>
+                    <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
+                    <div class="control-group"><label>Current (I): <span id="valI">10 A</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
+                `;
+                safeMathRender();
+
+                const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 30), matCopper);
+                activeGroup.add(wire);
+
+                const fieldRings = new THREE.Group();
+                for(let r=2; r<=6; r+=2) {
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 32), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
+                    ring.rotation.x = Math.PI/2;
+                    const arr = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,r), 1.5, 0x00d2ff);
+                    const arr2 = createArrow(new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,-r), 1.5, 0x00d2ff);
+                    ring.add(arr, arr2);
+                    fieldRings.add(ring);
+                }
+                activeGroup.add(fieldRings);
+
+                realHand.setPose('curl');
+                realHand.position.set(4, 0, 0);
+                activeGroup.add(realHand);
+
+                let I = 10;
+                document.getElementById('slI').addEventListener('input', e => { I = parseInt(e.target.value); document.getElementById('valI').textContent = I + " A"; });
+
+                currentAnimation = () => {
+                    const speed = I * 0.005;
+                    fieldRings.rotation.y += speed;
+
+                    // Hand Orientation
+                    realHand.rotation.set(0,0,0);
+                    if(I < 0) { realHand.rotation.z = Math.PI; realHand.rotation.x = Math.PI;} 
+                    else { realHand.rotation.z = 0; realHand.rotation.x = 0;}
+                    
+                    const time = Date.now() * 0.001 * Math.sign(I);
+                    realHand.position.x = Math.cos(time) * 4;
+                    realHand.position.z = Math.sin(-time) * 4;
+                    realHand.rotation.y = -time;
+                };
+            }
+        };
+
+        // 3. Flat Coil
+        const sysCoil = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Flat Coil</h2>
+                    <div class="formula-box">$$ B = \\frac{\\mu_0 N I}{2 R} $$</div>
+                    <div class="control-group"><label>Turns (N): <span id="valN">5</span></label><input type="range" id="slN" min="1" max="10" value="5"></div>
+                    <div class="control-group"><label>Current (I): <span id="valI">10 A</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
+                `;
+                safeMathRender();
+
+                const coilGroup = new THREE.Group();
+                activeGroup.add(coilGroup);
+                
+                function buildCoil(turns) {
+                    while(coilGroup.children.length > 0) coilGroup.remove(coilGroup.children[0]);
+                    for(let i=0; i<turns; i++) {
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.1, 8, 64), matCopper);
+                        ring.rotation.y = Math.PI/2; ring.position.x = (i - turns/2)*0.15;
+                        coilGroup.add(ring);
+                    }
+                }
+                
+                let N = 5; let I = 10;
+                buildCoil(N);
+
+                const vecB = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 5, 0x00d2ff);
+                activeGroup.add(vecB);
+
+                realHand.setPose('curl');
+                realHand.position.set(0, 3, 0);
+                activeGroup.add(realHand);
+
+                document.getElementById('slN').addEventListener('input', e => { N = parseInt(e.target.value); document.getElementById('valN').textContent = N; buildCoil(N); });
+                document.getElementById('slI').addEventListener('input', e => { I = parseInt(e.target.value); document.getElementById('valI').textContent = I + " A"; });
+
+                currentAnimation = () => {
+                    const bMag = (N * Math.abs(I)) / 10;
+                    if(bMag > 0.1) {
+                        vecB.setDirection(new THREE.Vector3(Math.sign(I), 0, 0));
+                        vecB.setLength(bMag, 1, 0.5);
+                    } else { vecB.setLength(0.01); }
+
+                    // Hand mimics curling along the top of the coil
+                    realHand.rotation.set(0,0,0);
+                    realHand.rotation.z = -Math.PI/2; // Thumb points along X
+                    if(I < 0) { realHand.rotation.x = Math.PI; realHand.rotation.z = Math.PI/2;}
+                };
+            }
+        };
+
+        // 4. Solenoid
+        const sysSolenoid = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Solenoid</h2>
+                    <div class="formula-box">$$ B = \\mu_0 n I $$</div>
+                    <div class="control-group"><label>Turn Density (n): <span id="valN">10</span></label><input type="range" id="slN" min="5" max="20" value="10"></div>
+                    <div class="control-group"><label>Current (I): <span id="valI">10 A</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
+                `;
+                safeMathRender();
+
+                const solGroup = new THREE.Group();
+                activeGroup.add(solGroup);
+                let N = 10; let I = 10;
+
+                function buildSol(turns) {
+                    while(solGroup.children.length > 0) { solGroup.children[0].geometry.dispose(); solGroup.remove(solGroup.children[0]); }
+                    const points = [];
+                    for(let i=0; i<=turns*40; i++) {
+                        const t = i / (turns*40);
+                        const angle = t * turns * Math.PI * 2;
+                        const x = -5 + (t * 10);
+                        points.push(new THREE.Vector3(x, Math.cos(angle)*2, Math.sin(angle)*2));
+                    }
+                    const curve = new THREE.CatmullRomCurve3(points);
+                    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, turns*40, 0.15, 8, false), matCopper);
+                    solGroup.add(tube);
+                }
+                buildSol(N);
+
+                const vecB = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 6, 0x00d2ff);
+                activeGroup.add(vecB);
+
+                realHand.setPose('curl');
+                realHand.position.set(0, 0, 3);
+                activeGroup.add(realHand);
+
+                document.getElementById('slN').addEventListener('input', e => { N = parseInt(e.target.value); document.getElementById('valN').textContent = N; buildSol(N); });
+                document.getElementById('slI').addEventListener('input', e => { I = parseInt(e.target.value); document.getElementById('valI').textContent = I + " A"; });
+
+                currentAnimation = () => {
+                    const bMag = (N * Math.abs(I)) / 20;
+                    if(bMag > 0.1) {
+                        vecB.setDirection(new THREE.Vector3(Math.sign(I), 0, 0));
+                        vecB.setLength(bMag + 2, 1, 0.5);
+                    } else { vecB.setLength(0.01); }
+
+                    // Hand wraps around outside
+                    realHand.rotation.set(Math.PI/2, Math.sign(I)*Math.PI/2, 0);
+                };
+            }
+        };
+
+        // 5. Laplace Force
+        const sysLaplace = {
+            init: () => {
+                uiContent.innerHTML = `
+                    <h2>Laplace (Lorentz) Force</h2>
+                    <div class="formula-box">$$ \\vec{F} = I \\vec{\\ell} \\times \\vec{B} $$</div>
+                    <div class="control-group"><label>Current (I): <span id="valI">+</span></label><input type="range" id="slI" min="-1" max="1" value="1" step="2"></div>
+                    <div class="control-group"><label>B-Field (B): <span id="valB">Up</span></label><input type="range" id="slB" min="-1" max="1" value="1" step="2"></div>
+                `;
+                safeMathRender();
+
+                const rails = new THREE.Group();
+                const r1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper); r1.rotation.z=Math.PI/2; r1.position.z=3;
+                const r2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), matCopper); r2.rotation.z=Math.PI/2; r2.position.z=-3;
+                rails.add(r1, r2); activeGroup.add(rails);
+
+                const magnet = new THREE.Group();
+                const pN = new THREE.Mesh(new THREE.BoxGeometry(4,1,4), matN); pN.position.y = -2;
+                const pS = new THREE.Mesh(new THREE.BoxGeometry(4,1,4), matS); pS.position.y = 2;
+                magnet.add(pN, pS); activeGroup.add(magnet);
+
+                const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 7), new THREE.MeshStandardMaterial({color: 0xffdd00, metalness: 1}));
+                rod.rotation.x = Math.PI/2; rod.position.y = 0.3;
+                activeGroup.add(rod);
+
+                const vGroup = new THREE.Group();
+                rod.add(vGroup);
+                const vecI = createArrow(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 4, 0xffea00);
+                const vecB = createArrow(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 4, 0x00d2ff);
+                const vecF = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 4, 0xff0055);
+                vGroup.add(vecI, vecB, vecF);
+
+                realHand.setPose('laplace');
+                realHand.position.set(0, 3, 0);
+                vGroup.add(realHand); // Hand moves with rod
+
+                let I = 1; let B = 1; let vel = 0;
+                document.getElementById('slI').addEventListener('input', e => { I = parseInt(e.target.value); document.getElementById('valI').textContent = I>0?"+":"-"; });
+                document.getElementById('slB').addEventListener('input', e => { B = parseInt(e.target.value); document.getElementById('valB').textContent = B>0?"Up":"Down"; pN.position.y = B>0?-2:2; pS.position.y = B>0?2:-2; });
+
+                currentAnimation = () => {
+                    vecI.setDirection(new THREE.Vector3(0,0,-I));
+                    vecB.setDirection(new THREE.Vector3(0,B,0));
+                    const F = -I * B;
+                    vecF.setDirection(new THREE.Vector3(F,0,0));
+
+                    // Hand Orthogonal Rotation
+                    realHand.rotation.set(0,0,0);
+                    if(B < 0) realHand.rotation.x = Math.PI; // flip down
+                    if(I < 0) {
+                        realHand.rotation.y = Math.PI; // flip 180
+                        if(B < 0) realHand.rotation.z = Math.PI; // correct wrist break
+                    }
+
+                    if(rod.position.x > -2.5 && rod.position.x < 2.5) vel += F * 0.015;
+                    vel *= 0.95; 
+                    rod.position.x += vel;
+                    rod.rotation.z -= vel / 0.3; 
+                    if(Math.abs(rod.position.x) > 10) { rod.position.x = 0; vel = 0; }
+                };
+            }
+        };
+
+        // --- Routing ---
+        const modules = { resultant: sysResultant, wire: sysWire, coil: sysCoil, solenoid: sysSolenoid, laplace: sysLaplace };
+
+        function loadModule(target) {
+            scene.remove(activeGroup);
+            activeGroup = new THREE.Group();
+            scene.add(activeGroup);
+            currentAnimation = null;
+            camera.position.set(15, 12, 20);
+            controls.target.set(0,0,0);
+            modules[target].init();
+        }
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                loadModule(e.target.dataset.target);
+            });
+        });
+
+        // Initialize
+        loadModule('resultant');
+
+        // --- Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if(currentAnimation) currentAnimation();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Dashboard Auto-hide logic
+        const dashboard = document.getElementById('dashboard');
+        const btnToggleUI = document.getElementById('btnToggleUI');
+        btnToggleUI.addEventListener('click', () => dashboard.classList.toggle('hidden'));
+        window.addEventListener('pointerdown', (e) => {
+            if (!dashboard.contains(e.target) && e.target !== btnToggleUI && window.innerWidth <= 768) {
+                dashboard.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
