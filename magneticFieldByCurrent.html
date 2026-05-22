@@ -407,9 +407,11 @@
 
                         // Flip hand direction if current reverses
                         hand.rotation.set(0, 0, -Math.PI/2);
-                        if(I < 0) { 
-                            hand.rotation.x = Math.PI; 
-                        } 
+                        if (I < 0) { 
+                        // Flips 180 degrees on the X-axis while keeping the thumb on the wire
+                            hand.rotation.set(Math.PI, 0, -Math.PI/2); 
+                        } else {
+                            hand.rotation.set(0, 0, -Math.PI/2); } 
                     };
                 }
             },
@@ -465,9 +467,11 @@
 
                         // Flip hand direction if current reverses
                         hand.rotation.set(0, 0, -Math.PI/2);
-                        if(I < 0) { 
-                            hand.rotation.x = Math.PI; 
-                        } 
+                        if (I < 0) {
+                        // Flips 180 degrees on the X-axis for reverse current
+                            hand.rotation.set(Math.PI/2 + Math.PI, Math.PI/2, 0); 
+                        } else {
+                            hand.rotation.set(Math.PI/2, Math.PI/2, 0); } 
                     };
                 }
             },
