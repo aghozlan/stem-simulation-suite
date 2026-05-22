@@ -10,7 +10,7 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('consent', 'default', {
-            'analytics_storage': 'denied',
+            'analytics_storage': 'denied',3.
             'ad_storage': 'denied',
             'ad_user_data': 'denied',
             'ad_personalization': 'denied'
@@ -463,8 +463,11 @@
                             vecB.setLength(bMag + 2, 1, 0.5);
                         } else { vecB.setLength(0.01); }
 
-                        // Hand wraps direction of current
-                        hand.rotation.y = I > 0 ? Math.PI/2 : -Math.PI/2;
+                        // Flip hand direction if current reverses
+                        hand.rotation.set(0, 0, -Math.PI/2);
+                        if(I < 0) { 
+                            hand.rotation.x = Math.PI; 
+                        } 
                     };
                 }
             },
