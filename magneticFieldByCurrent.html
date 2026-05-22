@@ -392,7 +392,7 @@
                     const hand = createStaticHand('curl');
                     // Anchor hand to the top wire of the coil
                     hand.position.set(0, 3, 0);
-                    hand.rotation.z = -Math.PI/2; // Thumb runs along the wire (X axis)
+                    
                     activeGroup.add(hand);
 
                     document.getElementById('slN').addEventListener('input', e => { N = parseInt(e.target.value); document.getElementById('valN').textContent = N; buildCoil(N); });
@@ -406,11 +406,10 @@
                         } else { vecB.setLength(0.01); }
 
                         // Flip hand direction if current reverses
+                        hand.rotation.set(0, 0, -Math.PI/2);
                         if(I < 0) { 
                             hand.rotation.x = Math.PI; 
-                        } else {
-                            hand.rotation.x = 0; 
-                        }
+                        } 
                     };
                 }
             },
