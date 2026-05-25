@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Magnetic Fields & Laplace Force</title>
+
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('consent', 'default', { 'analytics_storage': 'denied' });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
+    <script>gtag('js', new Date()); gtag('config', 'G-ZLT3D41MC0');</script>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        function safeMathRender() {
+            if (typeof window.MathJax !== 'undefined' && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise().catch(e => console.warn(e));
+            }
+        }
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --ui-bg: rgba(12, 18, 28, 0.9);
+            --accent: #00d2ff;
+            --force: #ff0055;
+            --current: #ffea00;
+        }
+
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #030508; color: #fff; touch-action: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* Dashboard */
+        #dashboard {
+            position: absolute; top: 20px; left: 20px; width: 400px; background: var(--ui-bg); backdrop-filter: blur(12px);
+            border: 1px solid var(--accent); border-radius: 12px; padding: 25px; z-index: 20; box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+        }
+        
+        .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        .tab-btn { padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: rgba(0, 210, 255, 0.2); border-color: var(--accent); color: #fff; }
+        .tab-btn.full-width { grid-column: 1 / -1; }
+
+        h2 { margin: 0 0 10px 0; font-size: 1.4rem; }
+        .formula-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); text-align: center; }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px; color: #cbd5e1; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        .legend { display: flex; gap: 15px; font-size: 0.8rem; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+        /* Real Hand UI Overlay */
+        #hand-reference-container {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 250px;
+            height: 250px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px dashed rgba(0, 210, 255, 0.3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #hand-reference-container.hidden { opacity: 0; transform: scale(0.8); }
+        
+        /* THE IMAGE TAG - REPLACE THE SRC WITH YOUR GENERATED IMAGE LINK */
+        #real-hand-img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        #hand-label { position: absolute; bottom: -25px; font-size: 0.8rem; color: var(--accent); font-weight: bold; text-align: center; width: 100%;}
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="dashboard">
+        <div class="tabs" id="tabs"></div>
+        <div id="ui-content"></div>
+
+        <div class="legend">
+            <span><div class="dot" style="background: var(--current)"></div> Current (I)</span>
+            <span><div class="dot" style="background: var(--accent)"></div> B-Field (B)</span>
+            <span><div class="dot" style="background: var(--force)"></div> Force (F)</span>
+        </div>
+    </div>
+
+    <div id="hand-reference-container">
+        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/RightHand.png
+" alt="Right Hand Rule">
+        <div id="hand-label">Right Hand Reference</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- Core Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x05080f, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+
+        scene.add(new THREE.AmbientLight(0x444444, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const grid = new THREE.GridHelper(60, 60, 0x00d2ff, 0x112233);
+        grid.position.y = -5; grid.material.opacity = 0.15; grid.material.transparent = true;
+        scene.add(grid);
+
+        const matCopper = new THREE.MeshPhysicalMaterial({color: 0xc86a3a, metalness: 1, roughness: 0.2});
+        const matN = new THREE.MeshStandardMaterial({color: 0xff0055, metalness: 0.3});
+        const matS = new THREE.MeshStandardMaterial({color: 0x00d2ff, metalness: 0.3});
+        
+        function createArrow(dir, origin, length, hex) {
+            return new THREE.ArrowHelper(dir, origin, length, hex, 0.2 * length, 0.1 * length);
+        }
+
+        let activeGroup = new THREE.Group();
+        scene.add(activeGroup);
+        let currentAnimation = null; 
+        const uiContent = document.getElementById('ui-content');
+        const handUI = document.getElementById('hand-reference-container');
+        const handImg = document.getElementById('real-hand-img');
+
+        // --- LAB MODULES ---
+        const modules = {
+            wire: {
+                title: "1. Straight Wire",
+                class: "tab-btn",
+                init: () => {
+                    uiContent.innerHTML = `
+                        <h2>Straight Wire</h2>
+                        <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
+                        <div class="control-group"><label>Current (I): <span id="valI">10 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Rotate the camera top-down. The field perfectly follows the true Cross Product.</p>
+                    `;
+                    safeMathRender();
+                    handUI.classList.remove('hidden');
+
+                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 30), matCopper);
+                    activeGroup.add(wire);
+
+                    const fieldRings = new THREE.Group();
+                    const allArrows = [];
+
+                    for(let r=2; r<=6; r+=2) {
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 32), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
+                        ring.rotation.x = Math.PI/2;
+                        
+                        // Create arrows around the ring
+                        const arr1 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(r,0,0), 1.5, 0x00d2ff);
+                        const arr2 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(-r,0,0), 1.5, 0x00d2ff);
+                        const arr3 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,r), 1.5, 0x00d2ff);
+                        const arr4 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-r), 1.5, 0x00d2ff);
+                        
+                        ring.add(arr1, arr2, arr3, arr4);
+                        fieldRings.add(ring);
+                        allArrows.push(arr1, arr2, arr3, arr4);
+                    }
+                    activeGroup.add(fieldRings);
+
+                    let I = 10;
+                    document.getElementById('slI').addEventListener('input', e => { 
+                        I = parseInt(e.target.value); 
+                        document.getElementById('valI').textContent = `${Math.abs(I)} A (${I >= 0 ? 'Up' : 'Down'})`; 
+                        
+                        // Transform the 2D Real Hand Image flawlessly based on physics
+                        if (I < 0) {
+                            // Flips hand upside down, and reverses horizontally so fingers curl opposite way
+                            handImg.style.transform = "scaleY(-1) scaleX(-1)";
+                        } else {
+                            handImg.style.transform = "scaleY(1) scaleX(1)";
+                        }
+                    });
+
+                    currentAnimation = () => {
+                        // In ThreeJS, negative rotation on Y axis is Counter-Clockwise from top-down
+                        const rotSpeed = I * 0.005;
+                        fieldRings.rotation.y -= rotSpeed; 
+
+                        // The Cross Product Physics Engine for the Arrows
+                        // B is proportional to I (cross) r
+                        const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
+                        
+                        allArrows.forEach(arr => {
+                            // Get the arrow's true position relative to the wire's center
+                            const pos = arr.position.clone(); 
+                            // Calculate actual tangential direction using cross product
+                            const tangent = new THREE.Vector3().crossVectors(currentVector, pos).normalize();
+                            arr.setDirection(tangent);
+                        });
+                    };
+                }
+            },
+            laplace: {
+                title: "2. Laplace Force",
+                class: "tab-btn full-width",
+                init: () => {
+                    uiContent.innerHTML = `
+                        <h2>Lorentz Liquid Lab</h2>
+                        <div class="formula-box">$$ \\vec{F} = I \\vec{\\ell} \\times \\vec{B} $$</div>
+                        <div class="control-group"><label>Current (I): <span id="valI">Up</span></label><input type="range" id="slI" min="-1" max="1" value="1" step="2"></div>
+                        <div class="control-group"><label>Magnets (B): <span id="valB">N Left, S Right</span></label><input type="range" id="slB" min="-1" max="1" value="1" step="2"></div>
+                    `;
+                    safeMathRender();
+                    handUI.classList.add('hidden'); // Hide hand for this specific experiment if needed, or update logic
+
+                    const tank = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), new THREE.MeshPhysicalMaterial({color: 0x0066ff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1}));
+                    tank.position.y = -1.5; activeGroup.add(tank);
+
+                    const poleN = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), matN);
+                    const poleS = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), matS);
+                    activeGroup.add(poleN, poleS);
+
+                    const wirePivot = new THREE.Group(); wirePivot.position.y = 4; activeGroup.add(wirePivot);
+                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 6), matCopper);
+                    wire.position.y = -3; wirePivot.add(wire);
+
+                    const vGroup = new THREE.Group(); wirePivot.add(vGroup); vGroup.position.y = -1.5;
+                    const vecI = createArrow(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 3, 0xffea00);
+                    const vecB = createArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 3, 0x00d2ff);
+                    const vecF = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 3, 0xff0055);
+                    vGroup.add(vecI, vecB, vecF);
+
+                    let I = 1; let B = 1; 
+                    
+                    document.getElementById('slI').addEventListener('input', e => { 
+                        I = parseInt(e.target.value); document.getElementById('valI').textContent = I > 0 ? "Up (+)" : "Down (-)"; 
+                    });
+                    document.getElementById('slB').addEventListener('input', e => { 
+                        B = parseInt(e.target.value); document.getElementById('valB').textContent = B > 0 ? "N Left, S Right" : "S Left, N Right"; 
+                    });
+
+                    currentAnimation = () => {
+                        poleN.position.set(B > 0 ? -3 : 3, -1.5, 0);
+                        poleS.position.set(B > 0 ? 3 : -3, -1.5, 0);
+
+                        const fDir = -1 * I * B; // Physics Cross Product logic for deflection
+                        wirePivot.rotation.x += ((fDir * 0.4) - wirePivot.rotation.x) * 0.1; 
+
+                        vecI.setDirection(new THREE.Vector3(0, I, 0));
+                        vecB.setDirection(new THREE.Vector3(B, 0, 0));
+                        vecF.setDirection(new THREE.Vector3(0, 0, fDir));
+                    };
+                }
+            }
+        };
+
+        // --- Navigation Logic ---
+        const tabsContainer = document.getElementById('tabs');
+        Object.keys(modules).forEach(key => {
+            const btn = document.createElement('button');
+            btn.className = modules[key].class;
+            btn.innerText = modules[key].title;
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                scene.remove(activeGroup);
+                activeGroup = new THREE.Group();
+                scene.add(activeGroup);
+                currentAnimation = null;
+                camera.position.set(15, 12, 20); controls.target.set(0,0,0);
+                modules[key].init();
+            });
+            tabsContainer.appendChild(btn);
+        });
+
+        tabsContainer.firstChild.classList.add('active');
+        modules['wire'].init();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if(currentAnimation) currentAnimation();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
