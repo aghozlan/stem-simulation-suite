@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ahmad Ghozlan, M.S.">
     <title>Advanced Magnetic Fields & Laplace Force</title>
 
     <script>
@@ -11,7 +12,10 @@
         gtag('consent', 'default', { 'analytics_storage': 'denied' });
     </script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
-    <script>gtag('js', new Date()); gtag('config', 'G-ZLT3D41MC0');</script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-ZLT3D41MC0');
+    </script>
 
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script>
@@ -38,12 +42,20 @@
         #dashboard {
             position: absolute; top: 20px; left: 20px; width: 400px; background: var(--ui-bg); backdrop-filter: blur(12px);
             border: 1px solid var(--accent); border-radius: 12px; padding: 25px; z-index: 20; box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            max-height: 90vh; overflow-y: auto;
         }
         
         .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .tab-btn { padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: rgba(0, 210, 255, 0.2); border-color: var(--accent); color: #fff; }
-        .tab-btn.full-width { grid-column: 1 / -1; }
+        
+        /* Switch Button */
+        #switchBtn {
+            width: 100%; padding: 12px; background: rgba(0, 210, 255, 0.2); border: 1px solid var(--accent);
+            color: var(--accent); border-radius: 6px; font-weight: bold; cursor: pointer; margin-bottom: 15px;
+            transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+        }
+        #switchBtn.active { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
 
         h2 { margin: 0 0 10px 0; font-size: 1.4rem; }
         .formula-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); text-align: center; }
@@ -57,33 +69,29 @@
 
         /* Real Hand UI Overlay */
         #hand-reference-container {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            width: 250px;
-            height: 250px;
-            z-index: 20;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px dashed rgba(0, 210, 255, 0.3);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            pointer-events: none;
+            position: absolute; bottom: 30px; right: 30px; width: 250px; height: 250px; z-index: 20;
+            background: rgba(0, 0, 0, 0.5); border: 2px dashed rgba(0, 210, 255, 0.3); border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; flex-direction: column; pointer-events: none;
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
         #hand-reference-container.hidden { opacity: 0; transform: scale(0.8); }
-        
-        /* THE IMAGE TAG - REPLACE THE SRC WITH YOUR GENERATED IMAGE LINK */
-        #real-hand-img {
-            max-width: 90%;
-            max-height: 90%;
-            object-fit: contain;
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
+        #real-hand-img { max-width: 90%; max-height: 90%; object-fit: contain; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
         #hand-label { position: absolute; bottom: -25px; font-size: 0.8rem; color: var(--accent); font-weight: bold; text-align: center; width: 100%;}
+
+        /* Consent Banner */
+        #consent-banner {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px;
+            background: rgba(15, 20, 28, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(0, 210, 255, 0.4);
+            border-radius: 12px; padding: 20px; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 15px; text-align: center;
+        }
+        #consent-banner.hidden { display: none; }
+        .consent-btns { display: flex; justify-content: center; gap: 10px; }
+        .btn-consent { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s;}
+        .btn-accept { background: #00d2ff; color: #000; }
+        .btn-accept:hover { box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+        .btn-decline { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        @media (max-width: 768px) { #dashboard { width: calc(100vw - 40px); top: 15px; left: 20px; } }
     </style>
 </head>
 <body>
@@ -91,7 +99,10 @@
     <div id="canvas-container"></div>
 
     <div id="dashboard">
-        <div class="tabs" id="tabs"></div>
+        <div class="tabs" id="tabs">
+            <button class="tab-btn active" data-target="wire">1. Straight Wire</button>
+            <button class="tab-btn" data-target="laplace">2. Laplace Force</button>
+        </div>
         <div id="ui-content"></div>
 
         <div class="legend">
@@ -102,15 +113,37 @@
     </div>
 
     <div id="hand-reference-container">
-        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/RightHand.png
-" alt="Right Hand Rule">
+        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg" alt="Right Hand Rule">
         <div id="hand-label">Right Hand Reference</div>
+    </div>
+
+    <div id="consent-banner">
+        <p style="margin:0; color:#cbd5e1;">This educational laboratory uses anonymous analytics to count visitors. Do you accept the use of analytics cookies?</p>
+        <div class="consent-btns">
+            <button class="btn-consent btn-decline" id="btnDecline">Decline</button>
+            <button class="btn-consent btn-accept" id="btnAccept">Accept</button>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
+        // --- Consent Logic ---
+        document.addEventListener("DOMContentLoaded", () => {
+            const banner = document.getElementById('consent-banner');
+            const status = localStorage.getItem('analytics_consent');
+            if (status === 'granted') { banner.classList.add('hidden'); gtag('consent', 'update', { 'analytics_storage': 'granted' }); } 
+            else if (status === 'denied') { banner.classList.add('hidden'); }
+
+            document.getElementById('btnAccept').addEventListener('click', () => {
+                localStorage.setItem('analytics_consent', 'granted'); gtag('consent', 'update', { 'analytics_storage': 'granted' }); banner.classList.add('hidden');
+            });
+            document.getElementById('btnDecline').addEventListener('click', () => {
+                localStorage.setItem('analytics_consent', 'denied'); banner.classList.add('hidden');
+            });
+        });
+
         // --- Core Scene Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
@@ -154,29 +187,48 @@
         // --- LAB MODULES ---
         const modules = {
             wire: {
-                title: "1. Straight Wire",
-                class: "tab-btn",
                 init: () => {
                     uiContent.innerHTML = `
-                        <h2>Straight Wire</h2>
+                        <h2>Straight Wire Circuit</h2>
                         <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
+                        <button id="switchBtn">SWITCH IS OPEN</button>
                         <div class="control-group"><label>Current (I): <span id="valI">10 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
-                        <p style="font-size: 0.85rem; color:#94a3b8;">Rotate the camera top-down. The field perfectly follows the true Cross Product.</p>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow out of the dry cell and generate the magnetic field.</p>
                     `;
                     safeMathRender();
                     handUI.classList.remove('hidden');
 
-                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 30), matCopper);
+                    let switchClosed = false;
+                    const switchBtn = document.getElementById('switchBtn');
+
+                    // 1. Dry Cell (Battery)
+                    const battery = new THREE.Group();
+                    battery.position.set(0, -6, 0);
+                    const batBody = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.5, 32), new THREE.MeshStandardMaterial({color: 0x222222}));
+                    const posTerminal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), new THREE.MeshStandardMaterial({color: 0xff0055})); // Red Positive
+                    posTerminal.position.y = 1.4;
+                    battery.add(batBody, posTerminal);
+                    activeGroup.add(battery);
+
+                    // 2. Wire
+                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 18), matCopper);
+                    wire.position.y = 3; // Connects perfectly to the positive terminal
                     activeGroup.add(wire);
 
+                    // 3. Glowing Charge Particles
+                    const particles = [];
+                    const pGeo = new THREE.SphereGeometry(0.18, 8, 8);
+                    const pMat = new THREE.MeshBasicMaterial({color: 0xffea00}); // Glowing yellow
+
+                    // 4. Magnetic Field Rings
                     const fieldRings = new THREE.Group();
+                    fieldRings.visible = false; // INVISIBLE UNTIL SWITCH CLOSED
                     const allArrows = [];
 
                     for(let r=2; r<=6; r+=2) {
                         const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 32), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
                         ring.rotation.x = Math.PI/2;
                         
-                        // Create arrows around the ring
                         const arr1 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(r,0,0), 1.5, 0x00d2ff);
                         const arr2 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(-r,0,0), 1.5, 0x00d2ff);
                         const arr3 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,r), 1.5, 0x00d2ff);
@@ -193,38 +245,70 @@
                         I = parseInt(e.target.value); 
                         document.getElementById('valI').textContent = `${Math.abs(I)} A (${I >= 0 ? 'Up' : 'Down'})`; 
                         
-                        // Transform the 2D Real Hand Image flawlessly based on physics
+                        // Transform Real Hand Image
                         if (I < 0) {
-                            // Flips hand upside down, and reverses horizontally so fingers curl opposite way
                             handImg.style.transform = "scaleY(-1) scaleX(-1)";
                         } else {
                             handImg.style.transform = "scaleY(1) scaleX(1)";
                         }
                     });
 
-                    currentAnimation = () => {
-                        // In ThreeJS, negative rotation on Y axis is Counter-Clockwise from top-down
-                        const rotSpeed = I * 0.005;
-                        fieldRings.rotation.y -= rotSpeed; 
+                    // Switch Button Logic
+                    switchBtn.addEventListener('click', () => {
+                        switchClosed = !switchClosed;
+                        if(switchClosed) {
+                            switchBtn.innerText = "SWITCH IS CLOSED";
+                            switchBtn.classList.add('active');
+                            fieldRings.visible = true; // Field appears instantly
+                        } else {
+                            switchBtn.innerText = "SWITCH IS OPEN";
+                            switchBtn.classList.remove('active');
+                            fieldRings.visible = false; // Field disappears instantly
+                            // Clear existing particles
+                            particles.forEach(p => { activeGroup.remove(p.mesh); p.mesh.geometry.dispose(); });
+                            particles.length = 0;
+                        }
+                    });
 
-                        // The Cross Product Physics Engine for the Arrows
-                        // B is proportional to I (cross) r
-                        const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
-                        
-                        allArrows.forEach(arr => {
-                            // Get the arrow's true position relative to the wire's center
-                            const pos = arr.position.clone(); 
-                            // Calculate actual tangential direction using cross product
-                            const tangent = new THREE.Vector3().crossVectors(currentVector, pos).normalize();
-                            arr.setDirection(tangent);
-                        });
+                    currentAnimation = () => {
+                        if(switchClosed && I !== 0) {
+                            // Rotate Field Rings (Negative Y rotation is Counter-Clockwise from top)
+                            const rotSpeed = I * 0.005;
+                            fieldRings.rotation.y -= rotSpeed; 
+
+                            // Update Arrows via Cross Product
+                            const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
+                            allArrows.forEach(arr => {
+                                const pos = arr.position.clone(); 
+                                const tangent = new THREE.Vector3().crossVectors(currentVector, pos).normalize();
+                                arr.setDirection(tangent);
+                            });
+
+                            // Spawn Glowing Particles
+                            if(Math.random() < Math.abs(I) * 0.03) {
+                                const p = new THREE.Mesh(pGeo, pMat);
+                                p.position.set(0, I > 0 ? -4.5 : 11.5, 0); // Start at battery terminal or top
+                                activeGroup.add(p);
+                                particles.push({mesh: p, speed: I * 0.015});
+                            }
+
+                            // Move and Clean Up Particles
+                            for(let i = particles.length - 1; i >= 0; i--) {
+                                const p = particles[i];
+                                p.mesh.position.y += p.speed;
+                                if((I > 0 && p.mesh.position.y > 12) || (I < 0 && p.mesh.position.y < -4.5)) {
+                                    activeGroup.remove(p.mesh);
+                                    p.mesh.geometry.dispose();
+                                    particles.splice(i, 1);
+                                }
+                            }
+                        }
                     };
                 }
             },
             laplace: {
-                title: "2. Laplace Force",
-                class: "tab-btn full-width",
                 init: () => {
+                    // --- UNTOUCHED LAPLACE CODE EXACTLY AS PREVIOUSLY PROVIDED ---
                     uiContent.innerHTML = `
                         <h2>Lorentz Liquid Lab</h2>
                         <div class="formula-box">$$ \\vec{F} = I \\vec{\\ell} \\times \\vec{B} $$</div>
@@ -232,7 +316,7 @@
                         <div class="control-group"><label>Magnets (B): <span id="valB">N Left, S Right</span></label><input type="range" id="slB" min="-1" max="1" value="1" step="2"></div>
                     `;
                     safeMathRender();
-                    handUI.classList.add('hidden'); // Hide hand for this specific experiment if needed, or update logic
+                    handUI.classList.add('hidden'); 
 
                     const tank = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), new THREE.MeshPhysicalMaterial({color: 0x0066ff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1}));
                     tank.position.y = -1.5; activeGroup.add(tank);
@@ -264,7 +348,7 @@
                         poleN.position.set(B > 0 ? -3 : 3, -1.5, 0);
                         poleS.position.set(B > 0 ? 3 : -3, -1.5, 0);
 
-                        const fDir = -1 * I * B; // Physics Cross Product logic for deflection
+                        const fDir = -1 * I * B; 
                         wirePivot.rotation.x += ((fDir * 0.4) - wirePivot.rotation.x) * 0.1; 
 
                         vecI.setDirection(new THREE.Vector3(0, I, 0));
@@ -275,12 +359,8 @@
             }
         };
 
-        // --- Navigation Logic ---
-        const tabsContainer = document.getElementById('tabs');
-        Object.keys(modules).forEach(key => {
-            const btn = document.createElement('button');
-            btn.className = modules[key].class;
-            btn.innerText = modules[key].title;
+        // --- Tab Navigation ---
+        document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
@@ -289,12 +369,11 @@
                 scene.add(activeGroup);
                 currentAnimation = null;
                 camera.position.set(15, 12, 20); controls.target.set(0,0,0);
-                modules[key].init();
+                modules[e.target.dataset.target].init();
             });
-            tabsContainer.appendChild(btn);
         });
 
-        tabsContainer.firstChild.classList.add('active');
+        // Initialize App
         modules['wire'].init();
 
         function animate() {
