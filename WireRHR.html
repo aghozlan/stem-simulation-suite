@@ -194,7 +194,7 @@
                         <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
                         <button id="switchBtn">SWITCH IS OPEN</button>
                         <div class="control-group"><label>Current (I): <span id="valI">14 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="14"></div>
-                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow out of the positive (red) terminal and generate the magnetic field.</p>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow and generate the magnetic field.</p>
                     `;
                     safeMathRender();
                     handUI.classList.remove('hidden');
@@ -326,21 +326,21 @@
 
                     currentAnimation = () => {
                         if(switchClosed && I !== 0) {
-                            // FIXED PHYSICS ROTATION HERE (Now perfectly synchronizes with CCW / CW math)
+                            // Rotate Field Rings (This defines the visual spin of the rings)
                             const rotSpeed = I * 0.005;
                             fieldRings.rotation.y += rotSpeed; 
 
-                            // Update Arrows via True Cross Product
+                            // Update Arrows via True Cross Product (This defines the direction the arrowheads point)
                             const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
                             allArrows.forEach(obj => {
                                 const tangent = new THREE.Vector3().crossVectors(currentVector, obj.basePos).normalize();
                                 obj.arrow.setDirection(tangent);
                             });
 
-                            // Animate Continuous Circuit Flow
+                            // Animate Continuous Circuit Flow (ONLY reversing this to simulate electron flow)
                             particles.forEach(p => {
-                                // Speed proportional to current strength. Positive I = CCW path traversal, Negative I = CW traversal
-                                p.t += (I * 0.0008); 
+                                // Subtracting the current strength reverses ONLY the yellow glows along the path
+                                p.t -= (I * 0.0008); 
                                 if (p.t > 1) p.t -= 1;
                                 if (p.t < 0) p.t += 1;
                                 
