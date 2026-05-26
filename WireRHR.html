@@ -11,7 +11,7 @@
         function gtag(){dataLayer.push(arguments);}
         gtag('consent', 'default', { 'analytics_storage': 'denied' });
     </script>
-    <script async ="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
     <script>
       gtag('js', new Date());
       gtag('config', 'G-ZLT3D41MC0');
@@ -114,8 +114,7 @@
     </div>
 
     <div id="hand-reference-container">
-        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg
-" alt="Right Hand Rule">
+        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg" alt="Right Hand Rule">
         <div id="hand-label">Right Hand Reference</div>
     </div>
 
@@ -194,8 +193,8 @@
                         <h2>Straight Wire Circuit</h2>
                         <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
                         <button id="switchBtn">SWITCH IS OPEN</button>
-                        <div class="control-group"><label>Current (I): <span id="valI">10 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
-                        <p style="font-size: 0.85rem; color:#94a3b8;">Click the switch to close the 3D circuit and generate the magnetic field.</p>
+                        <div class="control-group"><label>Current (I): <span id="valI">14 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="14"></div>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow out of the positive (red) terminal and generate the magnetic field.</p>
                     `;
                     safeMathRender();
                     handUI.classList.remove('hidden');
@@ -203,43 +202,34 @@
                     let switchClosed = false;
                     const switchBtn = document.getElementById('switchBtn');
 
-                    // 1. Dry Cell (Battery)
+                    // 1. Dry Cell (Battery) Logic
                     const battery = new THREE.Group();
                     battery.position.set(0, -6, 0);
                     const batBody = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.5, 32), new THREE.MeshStandardMaterial({color: 0x222222}));
-                    const posTerminal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), new THREE.MeshStandardMaterial({color: 0xff0055})); // Red Positive
-                    posTerminal.position.y = 1.4;
-                    battery.add(batBody, posTerminal);
+                    
+                    const posMat = new THREE.MeshStandardMaterial({color: 0xff0055}); // Red Positive
+                    const negMat = new THREE.MeshStandardMaterial({color: 0x050505}); // Black Negative
+                    
+                    const topTerminal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), posMat);
+                    topTerminal.position.y = 1.4;
+                    const botTerminal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), negMat);
+                    botTerminal.position.y = -1.4;
+                    
+                    battery.add(batBody, topTerminal, botTerminal);
                     activeGroup.add(battery);
 
-                    // 2. Full 3D Circuit Loop
-                    // Main Vertical Wire (for magnetic field)
-                    const wireMain = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 14.6), matCopper);
-                    wireMain.position.set(0, 2.7, 0); // From y=-4.6 to y=10
-                    activeGroup.add(wireMain);
-
-                    // Top Wire
-                    const wireTop = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), matCopper);
-                    wireTop.rotation.z = Math.PI / 2;
-                    wireTop.position.set(3, 10, 0);
-                    activeGroup.add(wireTop);
-
-                    // Return Vertical Wire
-                    const wireReturn = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 17.25), matCopper);
-                    wireReturn.position.set(6, 1.375, 0); // From y=10 to y=-7.25
-                    activeGroup.add(wireReturn);
-
-                    // Bottom Wire (Return to switch)
-                    const wireBot1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3), matCopper);
-                    wireBot1.rotation.z = Math.PI / 2;
-                    wireBot1.position.set(4.5, -7.25, 0);
-                    activeGroup.add(wireBot1);
-
-                    // Bottom Wire (Battery to switch)
-                    const wireBot2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1), matCopper);
-                    wireBot2.rotation.z = Math.PI / 2;
-                    wireBot2.position.set(0.5, -7.25, 0);
-                    activeGroup.add(wireBot2);
+                    // 2. Full 3D Continuous Circuit Loop Path
+                    const circuitPath = new THREE.CurvePath();
+                    circuitPath.add(new THREE.LineCurve3(new THREE.Vector3(0, -4.5, 0), new THREE.Vector3(0, 10, 0))); // Main wire up
+                    circuitPath.add(new THREE.LineCurve3(new THREE.Vector3(0, 10, 0), new THREE.Vector3(6, 10, 0)));   // Top wire right
+                    circuitPath.add(new THREE.LineCurve3(new THREE.Vector3(6, 10, 0), new THREE.Vector3(6, -7.25, 0))); // Return wire down
+                    circuitPath.add(new THREE.LineCurve3(new THREE.Vector3(6, -7.25, 0), new THREE.Vector3(0, -7.25, 0))); // Bottom wire left
+                    circuitPath.add(new THREE.LineCurve3(new THREE.Vector3(0, -7.25, 0), new THREE.Vector3(0, -4.5, 0))); // Through battery
+                    
+                    // Render the physical wire mesh
+                    const wireGeo = new THREE.TubeGeometry(circuitPath, 150, 0.15, 8, true);
+                    const wireMesh = new THREE.Mesh(wireGeo, matCopper);
+                    activeGroup.add(wireMesh);
 
                     // 3. Physical 3D Knife Switch
                     const switchGroup = new THREE.Group();
@@ -255,51 +245,64 @@
                     switchPost2.position.set(-2, 0, 0);
                     switchGroup.add(switchPost2);
 
-                    // Switch Arm Pivot
                     const armPivot = new THREE.Group();
                     switchGroup.add(armPivot);
                     const switchArm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.2, 0.4), matCopper);
                     switchArm.position.set(-1, 0.2, 0);
                     armPivot.add(switchArm);
-                    
-                    // Start Open (Angled up)
-                    armPivot.rotation.z = Math.PI / 4;
+                    armPivot.rotation.z = Math.PI / 4; // Start Open
 
-                    // 4. Glowing Charge Particles
+                    // 4. Glowing Charge Particles (Continuous Flow)
                     const particles = [];
-                    const pGeo = new THREE.SphereGeometry(0.18, 8, 8);
-                    const pMat = new THREE.MeshBasicMaterial({color: 0xffea00});
+                    const pGeo = new THREE.SphereGeometry(0.2, 8, 8);
+                    const pMat = new THREE.MeshBasicMaterial({color: 0xffea00}); // Glowing yellow
+                    const numParticles = 45; // Dense flow
 
-                    // 5. Magnetic Field Rings
+                    for(let i = 0; i < numParticles; i++) {
+                        const p = new THREE.Mesh(pGeo, pMat);
+                        p.visible = false; // Hide until switched on
+                        activeGroup.add(p);
+                        particles.push({ mesh: p, t: i / numParticles });
+                    }
+
+                    // 5. Cinematic Magnetic Field Rings (Tighter Radii)
                     const fieldRings = new THREE.Group();
-                    fieldRings.visible = false; // INVISIBLE UNTIL SWITCH CLOSED
+                    fieldRings.visible = false; // Hide until switched on
                     const allArrows = [];
 
-                    for(let r=2; r<=6; r+=2) {
-                        const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 32), new THREE.MeshBasicMaterial({color: 0x00d2ff}));
+                    for(let r = 1.5; r <= 4.5; r += 1.5) {
+                        // Thick glowing torus
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.04, 16, 64), new THREE.MeshBasicMaterial({color: 0x00d2ff, transparent: true, opacity: 0.6}));
                         ring.rotation.x = Math.PI/2;
-                        
-                        const arr1 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(r,0,0), 1.5, 0x00d2ff);
-                        const arr2 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(-r,0,0), 1.5, 0x00d2ff);
-                        const arr3 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,r), 1.5, 0x00d2ff);
-                        const arr4 = createArrow(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-r), 1.5, 0x00d2ff);
-                        
-                        ring.add(arr1, arr2, arr3, arr4);
                         fieldRings.add(ring);
-                        allArrows.push(arr1, arr2, arr3, arr4);
+                        
+                        // Arrows attached mathematically to the field group
+                        const arrowPoints = [
+                            new THREE.Vector3(r,0,0), new THREE.Vector3(-r,0,0),
+                            new THREE.Vector3(0,0,r), new THREE.Vector3(0,0,-r)
+                        ];
+                        arrowPoints.forEach(pt => {
+                            const arr = createArrow(new THREE.Vector3(0,0,1), pt, 1.0, 0x00d2ff);
+                            fieldRings.add(arr);
+                            allArrows.push({ arrow: arr, basePos: pt });
+                        });
                     }
                     activeGroup.add(fieldRings);
 
-                    let I = 10;
+                    let I = 14;
                     document.getElementById('slI').addEventListener('input', e => { 
                         I = parseInt(e.target.value); 
                         document.getElementById('valI').textContent = `${Math.abs(I)} A (${I >= 0 ? 'Up' : 'Down'})`; 
                         
-                        // Transform Real Hand Image
-                        if (I < 0) {
-                            handImg.style.transform = "scaleY(-1) scaleX(-1)";
+                        // 1. Physically flip battery terminals to justify current reversal
+                        if (I >= 0) {
+                            topTerminal.material = posMat;
+                            botTerminal.material = negMat;
+                            handImg.style.transform = "rotate(0deg)";
                         } else {
-                            handImg.style.transform = "scaleY(1) scaleX(1)";
+                            topTerminal.material = negMat;
+                            botTerminal.material = posMat;
+                            handImg.style.transform = "rotate(180deg)"; // Flips image for negative current
                         }
                     });
 
@@ -309,58 +312,49 @@
                         if(switchClosed) {
                             switchBtn.innerText = "SWITCH IS CLOSED";
                             switchBtn.classList.add('active');
-                            fieldRings.visible = true; // Field appears instantly
-                            armPivot.rotation.z = 0; // Close 3D switch physically
+                            fieldRings.visible = true;
+                            armPivot.rotation.z = 0; // Close arm
+                            particles.forEach(p => p.mesh.visible = true); // Reveal current
                         } else {
                             switchBtn.innerText = "SWITCH IS OPEN";
                             switchBtn.classList.remove('active');
-                            fieldRings.visible = false; // Field disappears instantly
-                            armPivot.rotation.z = Math.PI / 4; // Open 3D switch physically
-                            // Clear existing particles
-                            particles.forEach(p => { activeGroup.remove(p.mesh); p.mesh.geometry.dispose(); });
-                            particles.length = 0;
+                            fieldRings.visible = false;
+                            armPivot.rotation.z = Math.PI / 4; // Open arm
+                            particles.forEach(p => p.mesh.visible = false); // Hide current
                         }
                     });
 
                     currentAnimation = () => {
                         if(switchClosed && I !== 0) {
-                            // Rotate Field Rings (Negative Y rotation is Counter-Clockwise from top)
+                            // Rotate Field Rings
                             const rotSpeed = I * 0.005;
                             fieldRings.rotation.y -= rotSpeed; 
 
-                            // Update Arrows via Cross Product
+                            // Update Arrows via True Cross Product
                             const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
-                            allArrows.forEach(arr => {
-                                const pos = arr.position.clone(); 
-                                const tangent = new THREE.Vector3().crossVectors(currentVector, pos).normalize();
-                                arr.setDirection(tangent);
+                            allArrows.forEach(obj => {
+                                const tangent = new THREE.Vector3().crossVectors(currentVector, obj.basePos).normalize();
+                                obj.arrow.setDirection(tangent);
                             });
 
-                            // Spawn Glowing Particles on Main Wire
-                            if(Math.random() < Math.abs(I) * 0.03) {
-                                const p = new THREE.Mesh(pGeo, pMat);
-                                p.position.set(0, I > 0 ? -4.5 : 10, 0); // Start at battery terminal or top
-                                activeGroup.add(p);
-                                particles.push({mesh: p, speed: I * 0.015});
-                            }
-
-                            // Move and Clean Up Particles
-                            for(let i = particles.length - 1; i >= 0; i--) {
-                                const p = particles[i];
-                                p.mesh.position.y += p.speed;
-                                if((I > 0 && p.mesh.position.y > 10) || (I < 0 && p.mesh.position.y < -4.5)) {
-                                    activeGroup.remove(p.mesh);
-                                    p.mesh.geometry.dispose();
-                                    particles.splice(i, 1);
-                                }
-                            }
+                            // Animate Continuous Circuit Flow
+                            particles.forEach(p => {
+                                // Speed proportional to current strength. Positive I = CCW path traversal, Negative I = CW traversal
+                                p.t += (I * 0.0008); 
+                                if (p.t > 1) p.t -= 1;
+                                if (p.t < 0) p.t += 1;
+                                
+                                // Map mathematically exactly to the 3D loop path
+                                const pos = circuitPath.getPointAt(p.t);
+                                p.mesh.position.copy(pos);
+                            });
                         }
                     };
                 }
             },
             laplace: {
                 init: () => {
-                    // --- UNTOUCHED LAPLACE CODE EXACTLY AS PREVIOUSLY PROVIDED ---
+                    // --- UNTOUCHED LAPLACE CODE ---
                     uiContent.innerHTML = `
                         <h2>Lorentz Liquid Lab</h2>
                         <div class="formula-box">$$ \\vec{F} = I \\vec{\\ell} \\times \\vec{B} $$</div>
