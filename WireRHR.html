@@ -326,21 +326,21 @@
 
                     currentAnimation = () => {
                         if(switchClosed && I !== 0) {
-                            // Rotate Field Rings (This defines the visual spin of the rings)
+                            // Rotate Field Rings
                             const rotSpeed = I * 0.005;
                             fieldRings.rotation.y += rotSpeed; 
 
-                            // Update Arrows via True Cross Product (This defines the direction the arrowheads point)
+                            // Update Arrows via True Cross Product
                             const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
                             allArrows.forEach(obj => {
                                 const tangent = new THREE.Vector3().crossVectors(currentVector, obj.basePos).normalize();
                                 obj.arrow.setDirection(tangent);
                             });
 
-                            // Animate Continuous Circuit Flow (ONLY reversing this to simulate electron flow)
+                            // Animate Continuous Circuit Flow (PERFECTLY REVERSED TO SHOW CONVENTIONAL CURRENT)
                             particles.forEach(p => {
-                                // Subtracting the current strength reverses ONLY the yellow glows along the path
-                                p.t -= (I * 0.0008); 
+                                // CHANGED HERE: Using += so positive I flows up and around correctly!
+                                p.t += (I * 0.0008); 
                                 if (p.t > 1) p.t -= 1;
                                 if (p.t < 0) p.t += 1;
                                 
