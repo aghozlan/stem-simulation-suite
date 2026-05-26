@@ -11,7 +11,7 @@
         function gtag(){dataLayer.push(arguments);}
         gtag('consent', 'default', { 'analytics_storage': 'denied' });
     </script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
+    <script async ="https://www.googletagmanager.com/gtag/js?id=G-ZLT3D41MC0"></script>
     <script>
       gtag('js', new Date());
       gtag('config', 'G-ZLT3D41MC0');
@@ -51,11 +51,12 @@
         
         /* Switch Button */
         #switchBtn {
-            width: 100%; padding: 12px; background: rgba(0, 210, 255, 0.2); border: 1px solid var(--accent);
-            color: var(--accent); border-radius: 6px; font-weight: bold; cursor: pointer; margin-bottom: 15px;
+            width: 100%; padding: 15px; background: rgba(0, 210, 255, 0.1); border: 2px solid var(--accent);
+            color: var(--accent); border-radius: 8px; font-weight: 900; font-size: 1.1rem; cursor: pointer; margin-bottom: 20px;
             transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
         }
-        #switchBtn.active { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+        #switchBtn:hover { background: rgba(0, 210, 255, 0.3); }
+        #switchBtn.active { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--accent); border-color: #fff; }
 
         h2 { margin: 0 0 10px 0; font-size: 1.4rem; }
         .formula-box { background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); text-align: center; }
@@ -113,7 +114,8 @@
     </div>
 
     <div id="hand-reference-container">
-        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg" alt="Right Hand Rule">
+        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg
+" alt="Right Hand Rule">
         <div id="hand-label">Right Hand Reference</div>
     </div>
 
@@ -147,10 +149,10 @@
         // --- Core Scene Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x05080f, 0.012);
+        scene.fog = new THREE.FogExp2(0x05080f, 0.008);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(15, 12, 20);
+        camera.position.set(20, 15, 25);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -166,7 +168,7 @@
         scene.add(dirLight);
 
         const grid = new THREE.GridHelper(60, 60, 0x00d2ff, 0x112233);
-        grid.position.y = -5; grid.material.opacity = 0.15; grid.material.transparent = true;
+        grid.position.y = -7.25; grid.material.opacity = 0.15; grid.material.transparent = true;
         scene.add(grid);
 
         const matCopper = new THREE.MeshPhysicalMaterial({color: 0xc86a3a, metalness: 1, roughness: 0.2});
@@ -193,7 +195,7 @@
                         <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
                         <button id="switchBtn">SWITCH IS OPEN</button>
                         <div class="control-group"><label>Current (I): <span id="valI">10 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="10"></div>
-                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow out of the dry cell and generate the magnetic field.</p>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Click the switch to close the 3D circuit and generate the magnetic field.</p>
                     `;
                     safeMathRender();
                     handUI.classList.remove('hidden');
@@ -210,17 +212,65 @@
                     battery.add(batBody, posTerminal);
                     activeGroup.add(battery);
 
-                    // 2. Wire
-                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 18), matCopper);
-                    wire.position.y = 3; // Connects perfectly to the positive terminal
-                    activeGroup.add(wire);
+                    // 2. Full 3D Circuit Loop
+                    // Main Vertical Wire (for magnetic field)
+                    const wireMain = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 14.6), matCopper);
+                    wireMain.position.set(0, 2.7, 0); // From y=-4.6 to y=10
+                    activeGroup.add(wireMain);
 
-                    // 3. Glowing Charge Particles
+                    // Top Wire
+                    const wireTop = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), matCopper);
+                    wireTop.rotation.z = Math.PI / 2;
+                    wireTop.position.set(3, 10, 0);
+                    activeGroup.add(wireTop);
+
+                    // Return Vertical Wire
+                    const wireReturn = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 17.25), matCopper);
+                    wireReturn.position.set(6, 1.375, 0); // From y=10 to y=-7.25
+                    activeGroup.add(wireReturn);
+
+                    // Bottom Wire (Return to switch)
+                    const wireBot1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3), matCopper);
+                    wireBot1.rotation.z = Math.PI / 2;
+                    wireBot1.position.set(4.5, -7.25, 0);
+                    activeGroup.add(wireBot1);
+
+                    // Bottom Wire (Battery to switch)
+                    const wireBot2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1), matCopper);
+                    wireBot2.rotation.z = Math.PI / 2;
+                    wireBot2.position.set(0.5, -7.25, 0);
+                    activeGroup.add(wireBot2);
+
+                    // 3. Physical 3D Knife Switch
+                    const switchGroup = new THREE.Group();
+                    switchGroup.position.set(3, -7.25, 0);
+                    activeGroup.add(switchGroup);
+
+                    const switchPost1 = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.5), new THREE.MeshStandardMaterial({color: 0x333333}));
+                    switchPost1.rotation.x = Math.PI/2;
+                    switchGroup.add(switchPost1);
+                    
+                    const switchPost2 = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.5), new THREE.MeshStandardMaterial({color: 0x333333}));
+                    switchPost2.rotation.x = Math.PI/2;
+                    switchPost2.position.set(-2, 0, 0);
+                    switchGroup.add(switchPost2);
+
+                    // Switch Arm Pivot
+                    const armPivot = new THREE.Group();
+                    switchGroup.add(armPivot);
+                    const switchArm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.2, 0.4), matCopper);
+                    switchArm.position.set(-1, 0.2, 0);
+                    armPivot.add(switchArm);
+                    
+                    // Start Open (Angled up)
+                    armPivot.rotation.z = Math.PI / 4;
+
+                    // 4. Glowing Charge Particles
                     const particles = [];
                     const pGeo = new THREE.SphereGeometry(0.18, 8, 8);
-                    const pMat = new THREE.MeshBasicMaterial({color: 0xffea00}); // Glowing yellow
+                    const pMat = new THREE.MeshBasicMaterial({color: 0xffea00});
 
-                    // 4. Magnetic Field Rings
+                    // 5. Magnetic Field Rings
                     const fieldRings = new THREE.Group();
                     fieldRings.visible = false; // INVISIBLE UNTIL SWITCH CLOSED
                     const allArrows = [];
@@ -260,10 +310,12 @@
                             switchBtn.innerText = "SWITCH IS CLOSED";
                             switchBtn.classList.add('active');
                             fieldRings.visible = true; // Field appears instantly
+                            armPivot.rotation.z = 0; // Close 3D switch physically
                         } else {
                             switchBtn.innerText = "SWITCH IS OPEN";
                             switchBtn.classList.remove('active');
                             fieldRings.visible = false; // Field disappears instantly
+                            armPivot.rotation.z = Math.PI / 4; // Open 3D switch physically
                             // Clear existing particles
                             particles.forEach(p => { activeGroup.remove(p.mesh); p.mesh.geometry.dispose(); });
                             particles.length = 0;
@@ -284,10 +336,10 @@
                                 arr.setDirection(tangent);
                             });
 
-                            // Spawn Glowing Particles
+                            // Spawn Glowing Particles on Main Wire
                             if(Math.random() < Math.abs(I) * 0.03) {
                                 const p = new THREE.Mesh(pGeo, pMat);
-                                p.position.set(0, I > 0 ? -4.5 : 11.5, 0); // Start at battery terminal or top
+                                p.position.set(0, I > 0 ? -4.5 : 10, 0); // Start at battery terminal or top
                                 activeGroup.add(p);
                                 particles.push({mesh: p, speed: I * 0.015});
                             }
@@ -296,7 +348,7 @@
                             for(let i = particles.length - 1; i >= 0; i--) {
                                 const p = particles[i];
                                 p.mesh.position.y += p.speed;
-                                if((I > 0 && p.mesh.position.y > 12) || (I < 0 && p.mesh.position.y < -4.5)) {
+                                if((I > 0 && p.mesh.position.y > 10) || (I < 0 && p.mesh.position.y < -4.5)) {
                                     activeGroup.remove(p.mesh);
                                     p.mesh.geometry.dispose();
                                     particles.splice(i, 1);
@@ -368,7 +420,7 @@
                 activeGroup = new THREE.Group();
                 scene.add(activeGroup);
                 currentAnimation = null;
-                camera.position.set(15, 12, 20); controls.target.set(0,0,0);
+                camera.position.set(20, 15, 25); controls.target.set(0,0,0);
                 modules[e.target.dataset.target].init();
             });
         });
