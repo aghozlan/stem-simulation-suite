@@ -326,9 +326,9 @@
 
                     currentAnimation = () => {
                         if(switchClosed && I !== 0) {
-                            // Rotate Field Rings
+                            // FIXED PHYSICS ROTATION HERE (Now perfectly synchronizes with CCW / CW math)
                             const rotSpeed = I * 0.005;
-                            fieldRings.rotation.y -= rotSpeed; 
+                            fieldRings.rotation.y += rotSpeed; 
 
                             // Update Arrows via True Cross Product
                             const currentVector = new THREE.Vector3(0, Math.sign(I), 0);
