@@ -38,12 +38,21 @@
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #030508; color: #fff; touch-action: none; }
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
 
+        /* Toggle Button */
+        #btnToggleUI {
+            position: absolute; top: 20px; left: 20px; z-index: 30; background: rgba(12, 18, 28, 0.8);
+            border: 1px solid var(--accent); color: var(--accent); padding: 10px 15px; border-radius: 8px;
+            cursor: pointer; font-weight: bold; backdrop-filter: blur(5px); transition: all 0.3s ease;
+        }
+        #btnToggleUI:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+
         /* Dashboard */
         #dashboard {
-            position: absolute; top: 20px; left: 20px; width: 400px; background: var(--ui-bg); backdrop-filter: blur(12px);
+            position: absolute; top: 70px; left: 20px; width: 400px; background: var(--ui-bg); backdrop-filter: blur(12px);
             border: 1px solid var(--accent); border-radius: 12px; padding: 25px; z-index: 20; box-shadow: 0 15px 50px rgba(0,0,0,0.9);
-            max-height: 90vh; overflow-y: auto;
+            max-height: 80vh; overflow-y: auto; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
+        #dashboard.hidden { opacity: 0; pointer-events: none; transform: translateX(-450px); }
         
         .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .tab-btn { padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; border-radius: 6px; cursor: pointer; font-weight: bold; }
@@ -76,7 +85,7 @@
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
         #hand-reference-container.hidden { opacity: 0; transform: scale(0.8); }
-        #real-hand-img { max-width: 90%; max-height: 90%; object-fit: contain; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+        #real-hand-img { max-width: 90%; max-height: 90%; object-fit: contain; }
         #hand-label { position: absolute; bottom: -25px; font-size: 0.8rem; color: var(--accent); font-weight: bold; text-align: center; width: 100%;}
 
         /* Consent Banner */
@@ -92,14 +101,16 @@
         .btn-accept:hover { box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
         .btn-decline { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
-        @media (max-width: 768px) { #dashboard { width: calc(100vw - 40px); top: 15px; left: 20px; } }
+        @media (max-width: 768px) { #dashboard { width: calc(100vw - 40px); top: 70px; left: 20px; } }
     </style>
 </head>
 <body>
 
     <div id="canvas-container"></div>
+    
+    <button id="btnToggleUI">⚙️ Controls</button>
 
-    <div id="dashboard">
+    <div id="dashboard" class="hidden">
         <div class="tabs" id="tabs">
             <button class="tab-btn active" data-target="wire">1. Straight Wire</button>
             <button class="tab-btn" data-target="laplace">2. Laplace Force</button>
@@ -114,7 +125,7 @@
     </div>
 
     <div id="hand-reference-container">
-        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/licensed-image.jpg" alt="Right Hand Rule">
+        <img id="real-hand-img" src="https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/RHR1.png" alt="Right Hand Rule">
         <div id="hand-label">Right Hand Reference</div>
     </div>
 
@@ -130,6 +141,12 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
+        // --- UI Toggle Logic ---
+        const dashboard = document.getElementById('dashboard');
+        document.getElementById('btnToggleUI').addEventListener('click', () => {
+            dashboard.classList.toggle('hidden');
+        });
+
         // --- Consent Logic ---
         document.addEventListener("DOMContentLoaded", () => {
             const banner = document.getElementById('consent-banner');
@@ -185,6 +202,10 @@
         const handUI = document.getElementById('hand-reference-container');
         const handImg = document.getElementById('real-hand-img');
 
+        // New Direct Image URLs
+        const imgUp = "https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/RHR1.png";
+        const imgDown = "https://raw.githubusercontent.com/aghozlan/stem-simulation-suite/main/RHR2.png";
+
         // --- LAB MODULES ---
         const modules = {
             wire: {
@@ -194,7 +215,7 @@
                         <div class="formula-box">$$ B = \\frac{\\mu_0 I}{2\\pi r} $$</div>
                         <button id="switchBtn">SWITCH IS OPEN</button>
                         <div class="control-group"><label>Current (I): <span id="valI">14 A (Up)</span></label><input type="range" id="slI" min="-20" max="20" value="14"></div>
-                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow and generate the magnetic field.</p>
+                        <p style="font-size: 0.85rem; color:#94a3b8;">Close the switch to allow current to flow out of the positive (red) terminal and generate the magnetic field.</p>
                     `;
                     safeMathRender();
                     handUI.classList.remove('hidden');
@@ -271,12 +292,10 @@
                     const allArrows = [];
 
                     for(let r = 1.5; r <= 4.5; r += 1.5) {
-                        // Thick glowing torus
                         const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.04, 16, 64), new THREE.MeshBasicMaterial({color: 0x00d2ff, transparent: true, opacity: 0.6}));
                         ring.rotation.x = Math.PI/2;
                         fieldRings.add(ring);
                         
-                        // Arrows attached mathematically to the field group
                         const arrowPoints = [
                             new THREE.Vector3(r,0,0), new THREE.Vector3(-r,0,0),
                             new THREE.Vector3(0,0,r), new THREE.Vector3(0,0,-r)
@@ -294,15 +313,15 @@
                         I = parseInt(e.target.value); 
                         document.getElementById('valI').textContent = `${Math.abs(I)} A (${I >= 0 ? 'Up' : 'Down'})`; 
                         
-                        // 1. Physically flip battery terminals to justify current reversal
+                        // 1. Physically flip battery terminals and swap to correct Image
                         if (I >= 0) {
                             topTerminal.material = posMat;
                             botTerminal.material = negMat;
-                            handImg.style.transform = "rotate(0deg)";
+                            handImg.src = imgUp; // Uses RHR1.png
                         } else {
                             topTerminal.material = negMat;
                             botTerminal.material = posMat;
-                            handImg.style.transform = "rotate(180deg)"; // Flips image for negative current
+                            handImg.src = imgDown; // Uses RHR2.png
                         }
                     });
 
@@ -337,14 +356,12 @@
                                 obj.arrow.setDirection(tangent);
                             });
 
-                            // Animate Continuous Circuit Flow (PERFECTLY REVERSED TO SHOW CONVENTIONAL CURRENT)
+                            // Animate Continuous Circuit Flow
                             particles.forEach(p => {
-                                // CHANGED HERE: Using += so positive I flows up and around correctly!
                                 p.t += (I * 0.0008); 
                                 if (p.t > 1) p.t -= 1;
                                 if (p.t < 0) p.t += 1;
                                 
-                                // Map mathematically exactly to the 3D loop path
                                 const pos = circuitPath.getPointAt(p.t);
                                 p.mesh.position.copy(pos);
                             });
