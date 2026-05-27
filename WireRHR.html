@@ -77,15 +77,15 @@
         .legend { display: flex; gap: 15px; font-size: 0.8rem; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; }
         .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 
-        /* Real Hand UI Overlay - SCALED UP BY 30% */
+        /* Real Hand UI Overlay */
         #hand-reference-container {
-            position: absolute; bottom: 30px; right: 30px; width: 325px; height: 325px; z-index: 20;
+            position: absolute; bottom: 30px; right: 30px; width: 250px; height: 250px; z-index: 20;
             background: rgba(0, 0, 0, 0.5); border: 2px dashed rgba(0, 210, 255, 0.3); border-radius: 12px;
             display: flex; align-items: center; justify-content: center; flex-direction: column; pointer-events: none;
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
         #hand-reference-container.hidden { opacity: 0; transform: scale(0.8); }
-        #real-hand-img { max-width: 95%; max-height: 95%; object-fit: contain; }
+        #real-hand-img { max-width: 90%; max-height: 90%; object-fit: contain; }
         #hand-label { position: absolute; bottom: -25px; font-size: 0.8rem; color: var(--accent); font-weight: bold; text-align: center; width: 100%;}
 
         /* Consent Banner */
@@ -101,10 +101,7 @@
         .btn-accept:hover { box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
         .btn-decline { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
-        @media (max-width: 768px) { 
-            #dashboard { width: calc(100vw - 40px); top: 70px; left: 20px; } 
-            #hand-reference-container { width: 220px; height: 220px; } /* Slightly smaller on mobile to fit screen */
-        }
+        @media (max-width: 768px) { #dashboard { width: calc(100vw - 40px); top: 70px; left: 20px; } }
     </style>
 </head>
 <body>
