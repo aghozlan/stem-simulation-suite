@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Wave Visualizer</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f4f4f9; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 800px; margin-bottom: 20px; }
+        .control-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: inline-block; width: 120px; }
+        select, input[type="range"] { vertical-align: middle; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #005bb5; }
+        button.stop { background: #cc0000; }
+        button.stop:hover { background: #b30000; }
+        canvas { background: #111; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); max-width: 100%; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Mode:</label>
+            <input type="radio" name="mode" id="modeSim" value="sim" checked onchange="toggleMode()"> <label for="modeSim" style="width:auto; margin-right:15px;">Simulation</label>
+            <input type="radio" name="mode" id="modeMic" value="mic" onchange="toggleMode()"> <label for="modeMic" style="width:auto;">Live Microphone</label>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+        <div id="simControls">
+            <div class="control-group">
+                <button id="playBtn" onclick="togglePlay()">Play Sound</button>
+            </div>
+            <div class="control-group">
+                <label for="waveform">Wave Shape:</label>
+                <select id="waveform" onchange="updateSim()">
+                    <option value="sine">Sine (Smooth)</option>
+                    <option value="square">Square (Buzzy)</option>
+                    <option value="triangle">Triangle (Mellow)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="frequency">Frequency:</label>
+                <input type="range" id="frequency" min="100" max="1500" value="440" oninput="updateSim()">
+                <span id="freqLabel">440 Hz</span>
+            </div>
+            <div class="control-group">
+                <label for="amplitude">Amplitude:</label>
+                <input type="range" id="amplitude" min="0" max="1" step="0.01" value="0.5" oninput="updateSim()">
+                <span id="ampLabel">50%</span>
+            </div>
+        </div>
+
+        <div id="micControls" class="hidden">
+            <div class="control-group">
+                <button id="micBtn" onclick="toggleMic()">Start Microphone</button>
+            </div>
+            <p style="font-size: 14px; color: #666;">Make sure to allow microphone permissions in your browser when prompted.</p>
+        </div>
+    </div>
+
+    <canvas id="oscilloscope" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        let audioCtx, analyser, dataArray, drawVisual;
+        
+        // Simulation variables
+        let osc, gainNode;
+        let isPlaying = false;
+
+        // Microphone variables
+        let mediaStream, micSource;
+        let isMicActive = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleMode() {
+            stopSim();
+            stopMic();
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (mode === 'sim') {
+                document.getElementById('simControls').classList.remove('hidden');
+                document.getElementById('micControls').classList.add('hidden');
+            } else {
+                document.getElementById('simControls').classList.add('hidden');
+                document.getElementById('micControls').classList.remove('hidden');
+            }
+            clearCanvas();
+        }
+
+        // --- Simulation Logic ---
+        function togglePlay() {
+            if (isPlaying) { stopSim(); } else { startSim(); }
+        }
+
+        function startSim() {
+            initAudio();
+            osc = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            
+            updateSim();
+            osc.start();
+            isPlaying = true;
+            document.getElementById('playBtn').textContent = "Stop Sound";
+            document.getElementById('playBtn').classList.add('stop');
+            draw();
+        }
+
+        function stopSim() {
+            if (osc) { osc.stop(); osc.disconnect(); }
+            isPlaying = false;
+            document.getElementById('playBtn').textContent = "Play Sound";
+            document.getElementById('playBtn').classList.remove('stop');
+            cancelAnimationFrame(drawVisual);
+            setTimeout(clearCanvas, 50);
+        }
+
+        function updateSim() {
+            if (!isPlaying) return;
+            const type = document.getElementById('waveform').value;
+            const freq = document.getElementById('frequency').value;
+            const amp = document.getElementById('amplitude').value;
+            
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(amp, audioCtx.currentTime);
+            
+            document.getElementById('freqLabel').textContent = freq + " Hz";
+            document.getElementById('ampLabel').textContent = Math.round(amp * 100) + "%";
+        }
+
+        // --- Microphone Logic ---
+        async function toggleMic() {
+            if (isMicActive) { stopMic(); } else { await startMic(); }
+        }
+
+        async function startMic() {
+            initAudio();
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micSource = audioCtx.createMediaStreamSource(mediaStream);
+                micSource.connect(analyser); // Do not connect to destination (prevents feedback)
+                
+                isMicActive = true;
+                document.getElementById('micBtn').textContent = "Stop Microphone";
+                document.getElementById('micBtn').classList.add('stop');
+                draw();
+            } catch (err) {
+                alert("Microphone access denied or unavailable.");
+            }
+        }
+
+        function stopMic() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+            if (micSource) { micSource.disconnect(); }
+            isMicActive = false;
+            document.getElementById('micBtn').textContent = "Start Microphone";
+            document.getElementById('micBtn').classList.remove('stop');
+            cancelAnimationFrame(drawVisual);
+            setTimeout(clearCanvas, 50);
+        }
+
+        // --- Drawing Logic ---
+        function clearCanvas() {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        function draw() {
+            if (!isPlaying && !isMicActive) return;
+            drawVisual = requestAnimationFrame(draw);
+            
+            analyser.getByteTimeDomainData(dataArray);
+            
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#00ffcc';
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width * 1.0 / analyser.frequencyBinCount;
+            let x = 0;
+            
+            for (let i = 0; i < analyser.frequencyBinCount; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                
+                if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+                x += sliceWidth;
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        clearCanvas(); // Initial draw
+    </script>
+</body>
+</html>
